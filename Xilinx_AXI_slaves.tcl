@@ -150,7 +150,7 @@ proc C2C_AURORA {device_name INIT_CLK axi_interconnect axi_clk axi_rstn axi_freq
     endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq {addrLITE_offset -1} {addrLITE_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
