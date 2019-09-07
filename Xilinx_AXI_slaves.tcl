@@ -1,4 +1,4 @@
-source ../bd/axi_slave_helpers.tcl
+source ../bd/axi_helpers.tcl
 proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_iic:2.0 $device_name

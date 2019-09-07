@@ -17,7 +17,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     set AXI_INTERCONNECT_NAME $name
 
     #assert master_connections and master_clocks are the same size
-    if {[llength master_connections] != [llength master_clocks] || [llength master_connections] != [llength master_resets]} then {
+    if {[llength axi_masters] != [llength axi_master_clks] || [llength axi_masters] != [llength axi_master_rstns]} then {
 	error "master size mismatch"
     }
     
@@ -34,7 +34,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     connect_bd_net -q [get_bd_ports $rstn]  [get_bd_pins $AXI_INTERCONNECT_NAME/ARESETN]
 
     #create a slave interface for each AXI_BUS master
-    set AXI_MASTER_COUNT [llength $master_connections]
+    set AXI_MASTER_COUNT [llength $axi_masters]
     set_property CONFIG.NUM_SI $AXI_MASTER_COUNT  [get_bd_cells $AXI_INTERCONNECT_NAME]
 
     #Loop over all master interfaces requested and connect them to slave interfaces.
@@ -42,9 +42,9 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 	startgroup
 	#build this interface's slave interface label
 	set slaveID [format "%02d" ${iSlave}]
-	set slaveM [lindex $master_connections ${iSlave}]
-	set slaveC [lindex $master_clocks ${iSlave}]
-	set slaveR [lindex $master_resets ${iSlave}]		
+	set slaveM [lindex $axi_masters ${iSlave}]
+	set slaveC [lindex $axi_master_clks ${iSlave}]
+	set slaveR [lindex $axi_master_rstns ${iSlave}]		
 
 	# Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
 	connect_bd_net [get_bd_pins $slaveC] [get_bd_pins $AXI_INTERCONNECT_NAME/S${slaveID}_ACLK]
@@ -58,7 +58,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     }
 
     #zero the number of slaves connected to this interconnect
-    set $AXI_INTERCONNECT_SIZE(${AXI_INTERCONNECT_NAME}) 0
+    set AXI_INTERCONNECT_SIZE(${AXI_INTERCONNECT_NAME}) 0
     
     endgroup
 }
