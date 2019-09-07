@@ -9,6 +9,7 @@ proc clear_global {variable} {
 }
 
 [clear_global AXI_INTERCONNECT_SIZE]
+array set AXI_INTERCONNECT_SIZE {}
 
 proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_master_rstns} {
     global AXI_INTERCONNECT_SIZE
@@ -45,7 +46,8 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 	set slaveM [lindex $axi_masters ${iSlave}]
 	set slaveC [lindex $axi_master_clks ${iSlave}]
 	set slaveR [lindex $axi_master_rstns ${iSlave}]		
-
+	puts "Setting up interconnect slave interface for $slaveM"
+	
 	# Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
 	connect_bd_net [get_bd_pins $slaveC] [get_bd_pins $AXI_INTERCONNECT_NAME/S${slaveID}_ACLK]
 
@@ -58,63 +60,14 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     }
 
     #zero the number of slaves connected to this interconnect
-    set AXI_INTERCONNECT_SIZE(${AXI_INTERCONNECT_NAME}) 0
-    
+    set AXI_INTERCONNECT_SIZE($AXI_INTERCONNECT_NAME) 0
+    set_property CONFIG.NUM_MI {1}  [get_bd_cells $AXI_INTERCONNECT_NAME]
     endgroup
 }
 
 
-#================================================================================
-#  Add AXI connection names
-#================================================================================
-
-#This function adds a axi slave and its paramters to a global list of axi devices
-#This list is used to set how many ports there are on the axi interconnect
-#The arguments are
-#  device_name:  Name of the axi slave
-#  axi_master:   The name of the port on the AXI interconnect that this slave
-#                will connet to.
-#  axi_clk:      This is the clock that will run this devices AXI interface
-#                (both master and slave side for this slave)
-#  axi_rst:      This is the AXI reset (really AXI n_reset) that will be used
-#                for both slave and master sides of this devices axi connection.
-#  axi_freq:     This is the AXI clock frequency
-#  addr_offset:  Memory offset (default -1 means leave it up to vivado)
-#  addr_range:   Memory range at offset (default is 64K)
-
-proc CONNECT_SLAVE {device_name  axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K}} {
-
-    puts "adding $device_name to list"
-}
 
 
-
-#This function creates and connects all the PL AXI slaves
-#After all slaves are genrated and the AXI addressing is fixed,
-#dtsi_chunk files are created for all devices. 
-proc AXI_PL_CONNECT {} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_BUS_FREQ
-    global AXI_ADDR
-    global AXI_ADDR_RANGE
-    global AXI_MASTER_CLK
-    global AXI_MASTER_RSTN
-    global AXI_INTERCONNECT_NAME
-  
-    
-    #create connections for each PL device
-    foreach dev $devices {
-	[AXI_PL_DEV_CONNECT $dev ]
-    }
-
-    #this updates the address variables for dtsi_chunk generation, but can only be run after all AXI slaves are connected.
-    validate_bd_design
-    foreach dev $devices {
-	[AXI_DEV_UIO_DTSI_CHUNK $AXI_INTERCONNECT_NAME $AXI_BUS_M($dev) $dev]
-    }
-}
 
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
@@ -139,12 +92,14 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
 
     set AXI_INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($axi_interconnect)
     
-    set AXIM_NAME $AXI_INTERCONNECT_NAME
+    set AXIM_NAME $axi_interconnect
     append AXIM_NAME "/M" 
     append AXIM_NAME [format "%02d" $AXI_INTERCONNECT_SID]
-    #update the number of slaves
-    set AXI_INTERCONNECT_SIZE($axi_interconnect) ${AXI_INTERCONNECT_SID}+1
+    #update the number of slaves (master interfaces)
+    set AXI_INTERCONNECT_SIZE($axi_interconnect) [expr {${AXI_INTERCONNECT_SID} + 1}]
+    set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($axi_interconnect)  [get_bd_cells $axi_interconnect]
 
+    
     set AXIM_PORT_NAME $AXIM_NAME
     append AXIM_PORT_NAME "_AXI"
     set AXIM_CLK_NAME $AXIM_NAME
@@ -179,13 +134,13 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
 	puts "Automatically setting $device_name address"
 	assign_bd_address [get_bd_addr_segs {$device_name/Reg }]
     } else {
-	puts "Manually setting $device_name address to $AXI_ADDR($device_name) $AXI_ADDR_RANGE($device_name)"
+	puts "Manually setting $device_name address to $addr_offset $addr_range"
 
 	assign_bd_address -verbose -range $addr_range) -offset $addr_offset [get_bd_addr_segs $device_name/Reg]
 	
     }
 
-    validate_design
+    validate_bd_design
     #now that the design is validated, generate the DTSI_CHUNK file
     [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXI_INTERCONNECT_SID $device_name]
     
@@ -202,12 +157,14 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     #create axi port names
     set AXI_INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($axi_interconnect)
     
-    set AXIM_NAME $AXI_INTERCONNECT_NAME
+    set AXIM_NAME $axi_interconnect
     append AXIM_NAME "/M" 
     append AXIM_NAME  [format "%02d" $AXI_INTERCONNECT_SID]
     #update the number of slaves
-    set AXI_INTERCONNECT_SIZE($axi_interconnect) ${AXI_INTERCONNECT_SID}+1
-
+    puts $AXI_INTERCONNECT_SIZE($axi_interconnect)
+    set AXI_INTERCONNECT_SIZE($axi_interconnect) [expr {${AXI_INTERCONNECT_SID} + 1}]
+    set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($axi_interconnect)  [get_bd_cells $axi_interconnect]
+    puts $AXI_INTERCONNECT_SIZE($axi_interconnect)
 
     set AXIM_PORT_NAME $AXIM_NAME
     append AXIM_PORT_NAME "_AXI"
@@ -216,7 +173,8 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     set AXIM_RSTN_NAME $AXIM_NAME
     append AXIM_RSTN_NAME "_ARESETN"
     
-    #connect the requested clock to the AXI interconnect clock port 
+    #connect the requested clock to the AXI interconnect clock port
+    puts "$axi_clk ${AXIM_CLK_NAME}"
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
     connect_bd_net [get_bd_pins $axi_rstn]  [get_bd_pins ${AXIM_RSTN_NAME}]
 
@@ -226,19 +184,22 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
         connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
 	if [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
 	    connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-	    connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
-	} else {        
+	    connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+	} elseif [llength [get_bd_pins -quiet $device_name/s_aclk]] {
 	    connect_bd_net -quiet     [get_bd_pins $device_name/s_aclk]             [get_bd_pins $axi_clk]
-	    connect_bd_net -quiet     [get_bd_pins $device_name/s_aresetn]          [get_bd_pins $axi_rst]
+	    connect_bd_net -quiet     [get_bd_pins $device_name/s_aresetn]          [get_bd_pins $axi_rstn]
+	} else {
+	    connect_bd_net -quiet     [get_bd_pins $device_name/aclk]             [get_bd_pins $axi_clk]
+	    connect_bd_net -quiet     [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
 	}
     } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
         connect_bd_intf_net [get_bd_intf_pins $device_name/s_axi_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
+        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     } else {
         connect_bd_intf_net [get_bd_intf_pins $device_name/*AXI*LITE*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
+        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
 
     #add addressing
@@ -246,7 +207,7 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 	puts "Automatically setting $device_name address"
 	assign_bd_address [get_bd_addr_segs {$device_name/*/Reg }]
     } else {
-	puts "Manually setting $device_name address to $AXI_ADDR($device_name) $AXI_ADDR_RANGE($device_name)"
+	puts "Manually setting $device_name address to $addr_offset $addr_range"
 	if [llength [get_bd_addr_segs ${device_name}/*Reg*]] {
 	    assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Reg*]
 	} else {
@@ -255,7 +216,7 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 	
     }
 
-    validate_design
+    validate_bd_design
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {
@@ -276,7 +237,7 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
 #The arguments are the device name, axi master name+channel and the clk/reset for the
 #channel
-proc AXI_LITE_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_LITE_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     startgroup
     global AXI_INTERCONNECT_SIZE
 
@@ -285,12 +246,12 @@ proc AXI_LITE_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offs
     #create axi port names
     set AXI_INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($axi_interconnect)
     
-    set AXIM_NAME $AXI_INTERCONNECT_NAME
+    set AXIM_NAME $axi_interconnect
     append AXIM_NAME "/M" 
     append AXIM_NAME  [format "%02d" $AXI_INTERCONNECT_SID]
     #update the number of slaves
-    set AXI_INTERCONNECT_SIZE($axi_interconnect) ${AXI_INTERCONNECT_SID}+1
-
+    set AXI_INTERCONNECT_SIZE($axi_interconnect) [expr {${AXI_INTERCONNECT_SID} + 1}]
+    set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($axi_interconnect)  [get_bd_cells $axi_interconnect]
 
     set AXIM_PORT_NAME $AXIM_NAME
     append AXIM_PORT_NAME "_AXI"
@@ -310,21 +271,21 @@ proc AXI_LITE_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offs
 
 	if       [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
 	    connect_bd_net      [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-	    connect_bd_net      [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
+	    connect_bd_net      [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
 	} elseif [llength [get_bd_pins -quiet $device_name/s_axi_lite_aclk]] {
 	    connect_bd_net      [get_bd_pins $device_name/s_axi_lite_aclk]        [get_bd_pins $axi_clk]
-	    connect_bd_net      [get_bd_pins $device_name/s_aresetn]     [get_bd_pins $axi_rst]	    
+	    connect_bd_net      [get_bd_pins $device_name/s_aresetn]     [get_bd_pins $axi_rstn]	    
         } else {	           
 	    connect_bd_net      [get_bd_pins $device_name/s_aclk]                 [get_bd_pins $axi_clk]
-	    connect_bd_net      [get_bd_pins $device_name/s_aresetn]              [get_bd_pins $axi_rst]	
+	    connect_bd_net      [get_bd_pins $device_name/s_aresetn]              [get_bd_pins $axi_rstn]	
 }
     } else {
         connect_bd_intf_net     [get_bd_intf_pins $device_name/AXI_LITE] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         connect_bd_net          [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
+        connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
 
-    validate_design
+    validate_bd_design
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {
@@ -342,7 +303,7 @@ proc AXI_LITE_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offs
     endgroup
 }
 
-proc AXI_CTL_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     startgroup
     global AXI_INTERCONNECT_SIZE
 
@@ -351,11 +312,12 @@ proc AXI_CTL_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offse
     #create axi port names
     set AXI_INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($axi_interconnect)
     
-    set AXIM_NAME $AXI_INTERCONNECT_NAME
+    set AXIM_NAME $axi_interconnect
     append AXIM_NAME "/M" 
     append AXIM_NAME  [format "%02d" $AXI_INTERCONNECT_SID]
     #update the number of slaves
-    set AXI_INTERCONNECT_SIZE($axi_interconnect) ${AXI_INTERCONNECT_SID}+1
+    set AXI_INTERCONNECT_SIZE($axi_interconnect) [expr {${AXI_INTERCONNECT_SID} + 1}]
+    set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($axi_interconnect)  [get_bd_cells $axi_interconnect]
 
 
     set AXIM_PORT_NAME $AXIM_NAME
@@ -372,10 +334,10 @@ proc AXI_CTL_DEV_CONNECT {axi_interconnect axi_clk axi_rstn axi_freq {addr_offse
 
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
     connect_bd_intf_net     [get_bd_intf_pins $device_name/S_AXI_CTL] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
-    connect_bd_net          [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-    connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rst]
+    connect_bd_net  -quiet  [get_bd_pins $device_name/aclk]             [get_bd_pins $axi_clk]
+    connect_bd_net  -quiet  [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
 
-    validate_design
+    validate_bd_design
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {

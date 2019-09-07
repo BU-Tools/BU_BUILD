@@ -80,12 +80,12 @@ proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_fr
     puts "Added Xilinx UART AXI Slave: $device_name"
 }
 
-proc C2C_AURORA {device_name INIT_CLK axi_interconnect axi_clk axi_rstn axi_freq} {
+proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq} {
 
     set C2C ${device_name}
     set C2C_PHY ${C2C}_PHY    
     #create chip-2-chip aurora     
-    startgroup 
+#    startgroup 
     create_bd_cell -type ip -vlnv xilinx.com:ip:aurora_64b66b:11.2 ${C2C_PHY}        
     set_property CONFIG.C_INIT_CLK.VALUE_SRC PROPAGATED   [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_AURORA_LANES       {1}          [get_bd_cells ${C2C_PHY}]
@@ -110,8 +110,8 @@ proc C2C_AURORA {device_name INIT_CLK axi_interconnect axi_clk axi_rstn axi_freq
     create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 ${C2C_ARST}
     set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net  [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-#    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
-    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk [get_bd_pins ${C2C_ARST}/Op1] $axi_freq]
+    #    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
+    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
 
 
     
@@ -147,22 +147,22 @@ proc C2C_AURORA {device_name INIT_CLK axi_interconnect axi_clk axi_rstn axi_freq
     connect_bd_net [get_bd_ports ${INIT_CLK}]   [get_bd_pins ${C2C}/aurora_init_clk]
     connect_bd_net [get_bd_ports ${INIT_CLK}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]    
     
-    endgroup      
+#    endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init_clk {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXI_FW}
-    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range 1]
-    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range 1]
+    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range]
+    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
     #create AXI(4LITE) firewall IPs to handle a bad C2C link
     set AXILITE_FW ${device_name}_AXILITE_FW
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXILITE_FW}
-    [AXI_LITE_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range 1]
-    [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range 1]
+    [AXI_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range]
+    [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
     #create the actual C2C master
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_chip2chip:5.0 $device_name
@@ -186,7 +186,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq {add
     make_bd_pins_external       -name ${device_name}_axi_c2c_multi_bit_error_out [get_bd_pins ${device_name}/axi_c2c_multi_bit_error_out]
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
     
-    [C2C_AURORA ${device_name} init_clk]
+    [C2C_AURORA ${device_name} $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
     
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
