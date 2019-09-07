@@ -1,10 +1,5 @@
 source ../bd/axi_slave_helpers.tcl
-proc AXI_IP_I2C {device_name} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_iic:2.0 $device_name
 
@@ -16,20 +11,13 @@ proc AXI_IP_I2C {device_name} {
     make_bd_pins_external  -name ${device_name}_scl_t [get_bd_pins $device_name/scl_t]
     make_bd_pins_external  -name ${device_name}_sda_t [get_bd_pins $device_name/sda_t]
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $AXI_BUS_M($device_name) $AXI_BUS_CLK($device_name) $AXI_BUS_RST($device_name)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
-    #build the DTSI chunk for this device to be a UIO
-    [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+
     puts "Added Xilinx I2C AXI Slave: $device_name"
 }
 
-proc AXI_IP_XVC {device_name} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 $device_name
     #configure the debug bridge to be 
@@ -37,25 +25,18 @@ proc AXI_IP_XVC {device_name} {
     set_property CONFIG.C_DESIGN_TYPE {0} [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $AXI_BUS_M($device_name) $AXI_BUS_CLK($device_name) $AXI_BUS_RST($device_name)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
 
     
     #generate ports for the JTAG signals
     make_bd_pins_external       [get_bd_cells $device_name]
     make_bd_intf_pins_external  [get_bd_cells $device_name]
-    #build the DTSI chunk for this device to be a UIO
-    [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
+
     puts "Added Xilinx XVC AXI Slave: $device_name"
 }
 
-proc AXI_IP_LOCAL_XVC {device_name} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 $device_name
     #configure the debug bridge to be 
@@ -69,9 +50,7 @@ proc AXI_IP_LOCAL_XVC {device_name} {
 
     
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $AXI_BUS_M($device_name) $AXI_BUS_CLK($device_name) $AXI_BUS_RST($device_name)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
 
 
     #test
@@ -79,53 +58,29 @@ proc AXI_IP_LOCAL_XVC {device_name} {
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/m0_bscan] [get_bd_intf_pins debug_bridge_0/S_BSCAN]
     connect_bd_net [get_bd_pins debug_bridge_0/clk] [get_bd_pins $AXI_BUS_CLK($device_name)]
 
-
-
-    
-    #build the DTSI chunk for this device to be a UIO
-    [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     puts "Added Xilinx Local XVC AXI Slave: $device_name"
-
-
-
-
     
 }
 
-proc AXI_IP_UART {device_name baud_rate} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 $device_name
     #configure the debug bridge to be
     set_property CONFIG.C_BAUDRATE $baud_rate [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $AXI_BUS_M($device_name) $AXI_BUS_CLK($device_name) $AXI_BUS_RST($device_name)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
 
     
     #generate ports for the JTAG signals
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
-#    make_bd_pins_external  -name ${device_name}_rx [get_bd_pins $device_name/rx]
-#    make_bd_pins_external  -name ${device_name}_tx [get_bd_pins $device_name/tx]
 
     
-    #build the DTSI chunk for this device to be a UIO
-    [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     puts "Added Xilinx UART AXI Slave: $device_name"
 }
 
-proc C2C_AURORA {device_name INIT_CLK} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc C2C_AURORA {device_name INIT_CLK axi_interconnect axi_clk axi_rstn axi_freq} {
 
     set C2C ${device_name}
     set C2C_PHY ${C2C}_PHY    
@@ -147,17 +102,16 @@ proc C2C_AURORA {device_name INIT_CLK} {
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
     
-    set_property -dict [list CONFIG.C_GT_CLOCK_1 {GTXQ3} CONFIG.C_GT_LOC_9 {X} CONFIG.C_GT_LOC_15 {1}]          [get_bd_cells ${C2C_PHY}]
+#    set_property -dict [list CONFIG.C_GT_CLOCK_1 {GTXQ3} CONFIG.C_GT_LOC_9 {X} CONFIG.C_GT_LOC_15 {1}]          [get_bd_cells ${C2C_PHY}]
 
     
-    #connect to interconnect
-    [AXI_DEV_CONNECT ${C2C_PHY} $AXI_BUS_M(${C2C_PHY}) $AXI_BUS_CLK(${C2C_PHY}) $AXI_BUS_RST(${C2C_PHY})]
-    connect_bd_net  [get_bd_pins ${INIT_CLK}] [get_bd_pins $AXI_BUS_CLK(${C2C_PHY})]
-    set C2C_ARST C2C_PHY_AXI_LITE_RESET_INVERTER
+    #connect to interconnect (init clock)
+    set C2C_ARST ${C2C_PHY}_AXI_LITE_RESET_INVERTER
     create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 ${C2C_ARST}
     set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net  [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
+#    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
+    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk [get_bd_pins ${C2C_ARST}/Op1] $axi_freq]
 
 
     
@@ -196,13 +150,21 @@ proc C2C_AURORA {device_name INIT_CLK} {
     endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq {addrLITE_offset -1} {addrLITE_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
+    #create AXI(4) firewall IPs to handle a bad C2C link
+    set AXI_FW ${device_name}_AXI_FW
+    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXI_FW}
+    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range 1]
+    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range 1]
+
+    #create AXI(4LITE) firewall IPs to handle a bad C2C link
+    set AXILITE_FW ${device_name}_AXILITE_FW
+    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXILITE_FW}
+    [AXI_LITE_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range 1]
+    [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range 1]
+
+    #create the actual C2C master
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_chip2chip:5.0 $device_name
     set_property CONFIG.C_AXI_STB_WIDTH {4}         [get_bd_cells $device_name]
     set_property CONFIG.C_AXI_DATA_WIDTH {32}	    [get_bd_cells $device_name]
@@ -213,14 +175,8 @@ proc AXI_C2C_MASTER {device_name} {
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
     set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
 
-    #axi interface
-    [AXI_DEV_CONNECT ${device_name} $AXI_BUS_M(${device_name}) $AXI_BUS_CLK(${device_name}) $AXI_BUS_RST(${device_name})]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
 
-    #axi lite interface
-    [AXI_LITE_DEV_CONNECT ${device_name} $AXI_BUS_M(${device_name}_LITE) $AXI_BUS_CLK(${device_name}_LITE) $AXI_BUS_RST(${device_name}_LITE)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK(${device_name}_LITE)]
+
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
     #expose debugging signals
@@ -230,20 +186,13 @@ proc AXI_C2C_MASTER {device_name} {
     make_bd_pins_external       -name ${device_name}_axi_c2c_multi_bit_error_out [get_bd_pins ${device_name}/axi_c2c_multi_bit_error_out]
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
     
-
     [C2C_AURORA ${device_name} init_clk]
     
-    assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
+    #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
 }
 
-proc AXI_IP_XADC {device_name} {
-    global AXI_BUS_M
-    global AXI_BUS_RST
-    global AXI_BUS_CLK
-    global AXI_MASTER_CLK
-    global AXI_SLAVE_RSTN
-
+proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     #create XADC AXI slave 
     create_bd_cell -type ip -vlnv xilinx.com:ip:xadc_wiz:3.3 ${device_name}
 
@@ -252,9 +201,7 @@ proc AXI_IP_XADC {device_name} {
 
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $AXI_BUS_M($device_name) $AXI_BUS_CLK($device_name) $AXI_BUS_RST($device_name)]
-    connect_bd_net [get_bd_pins $AXI_MASTER_CLK] [get_bd_pins $AXI_BUS_CLK($device_name)]
-    connect_bd_net [get_bd_pins $AXI_SLAVE_RSTN] [get_bd_pins $AXI_BUS_RST($device_name)]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
 
     
     #expose alarms
@@ -266,8 +213,6 @@ proc AXI_IP_XADC {device_name} {
     make_bd_pins_external   -name ${device_name}_vccddro_alarm     [get_bd_pins ${device_name}/vccddro_alarm_out]
     make_bd_pins_external   -name ${device_name}_overtemp_alarm    [get_bd_pins ${device_name}/ot_alarm_out]
 
-    #build the DTSI chunk for this device to be a UIO
-    [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     puts "Added Xilinx XADC AXI Slave: $device_name"
 
 }

@@ -1,5 +1,4 @@
 proc BUILD_AXI_INTERCONNECT {name clk reset master_connections master_clocks master_resets} {
-    global AXI_BUS_M
 
     #create an axi interconnect 
     set AXI_INTERCONNECT_NAME $name
@@ -18,18 +17,12 @@ proc BUILD_AXI_INTERCONNECT {name clk reset master_connections master_clocks mas
     #create a slave for each AXI_BUS master to the interconnect
     set AXI_MASTER_COUNT [llength $master_connections]
     set_property CONFIG.NUM_SI $AXI_MASTER_COUNT  [get_bd_cells $AXI_INTERCONNECT_NAME]
-    
-    #create a master for each AXI_BUS device on the interconnect
-    set AXI_DEVICE_COUNT [array size AXI_BUS_M]
-    set_property CONFIG.NUM_MI $AXI_DEVICE_COUNT  [get_bd_cells $AXI_INTERCONNECT_NAME]
-
-    
-    
+        
     #loop
     #connect this interconnect interaces' clock to the AXI master clk
-    connect_bd_net -q [get_bd_pins $clk] [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
-    connect_bd_net -q [get_bd_ports $clk] [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
-    connect_bd_net -q [get_bd_pins $reset] [get_bd_pins $AXI_INTERCONNECT_NAME/ARESETN]
+    connect_bd_net -q [get_bd_pins $clk]    [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
+    connect_bd_net -q [get_bd_ports $clk]   [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
+    connect_bd_net -q [get_bd_pins $reset]  [get_bd_pins $AXI_INTERCONNECT_NAME/ARESETN]
     connect_bd_net -q [get_bd_ports $reset] [get_bd_pins $AXI_INTERCONNECT_NAME/ARESETN]
 
     for {set iSlave 0} {$iSlave < ${AXI_MASTER_COUNT}} {incr iSlave} {
