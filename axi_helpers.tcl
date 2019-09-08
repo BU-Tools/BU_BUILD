@@ -136,7 +136,7 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     } else {
 	puts "Manually setting $device_name address to $addr_offset $addr_range"
 
-	assign_bd_address -verbose -range $addr_range) -offset $addr_offset [get_bd_addr_segs $device_name/Reg]
+	assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/Reg]
 	
     }
 
@@ -147,9 +147,7 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     endgroup
 }
 
-
-#This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
-proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     global AXI_INTERCONNECT_SIZE
 
     startgroup
@@ -161,10 +159,8 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     append AXIM_NAME "/M" 
     append AXIM_NAME  [format "%02d" $AXI_INTERCONNECT_SID]
     #update the number of slaves
-    puts $AXI_INTERCONNECT_SIZE($axi_interconnect)
     set AXI_INTERCONNECT_SIZE($axi_interconnect) [expr {${AXI_INTERCONNECT_SID} + 1}]
     set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($axi_interconnect)  [get_bd_cells $axi_interconnect]
-    puts $AXI_INTERCONNECT_SIZE($axi_interconnect)
 
     set AXIM_PORT_NAME $AXIM_NAME
     append AXIM_PORT_NAME "_AXI"
@@ -174,7 +170,6 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     append AXIM_RSTN_NAME "_ARESETN"
     
     #connect the requested clock to the AXI interconnect clock port
-    puts "$axi_clk ${AXIM_CLK_NAME}"
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
     connect_bd_net [get_bd_pins $axi_rstn]  [get_bd_pins ${AXIM_RSTN_NAME}]
 
@@ -201,7 +196,13 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
+    endgroup
+    return $AXI_INTERCONNECT_SID
+}
+proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
 
+    startgroup
+    
     #add addressing
     if {$addr_offset == -1} {
 	puts "Automatically setting $device_name address"
@@ -216,6 +217,11 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 	
     }
 
+    endgroup
+}
+proc AXI_GEN_DTSI {device_name axi_interconnect sid {slave_local 1}} {
+
+    startgroup
     validate_bd_design
 
     #Add this to the list of slave we need to make dtsi files for
@@ -224,7 +230,7 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 	[AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     } elseif {$slave_local == 0} {
 	#if this is accessed via axi C2C, then we need to write a full dtsi entry
-	[AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXI_INTERCONNECT_SID ${device_name}]
+	[AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $sid ${device_name}]
     }
     #else {
 	#do not generate a file
@@ -232,6 +238,14 @@ proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     
 
     endgroup
+
+}
+#This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
+proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+
+    set sid [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    AXI_SET_ADDR $device_name $addr_offset $addr_range
+    AXI_GEN_DTSI $device_name $axi_interconnect $sid $slave_local    
 }
 
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
@@ -244,7 +258,7 @@ proc AXI_LITE_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_fre
     startgroup
 
     #create axi port names
-    set AXI_INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($axi_interconnect)
+    set AXI_INTERCONNECT_SID [format "%02d" $AXI_INTERCONNECT_SIZE($axi_interconnect)]
     
     set AXIM_NAME $axi_interconnect
     append AXIM_NAME "/M" 

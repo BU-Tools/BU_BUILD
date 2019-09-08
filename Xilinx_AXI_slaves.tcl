@@ -56,7 +56,7 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
     #test
     create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 debug_bridge_0
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/m0_bscan] [get_bd_intf_pins debug_bridge_0/S_BSCAN]
-    connect_bd_net [get_bd_pins debug_bridge_0/clk] [get_bd_pins $AXI_BUS_CLK($device_name)]
+    connect_bd_net [get_bd_pins debug_bridge_0/clk] [get_bd_pins $axi_clk]
 
     puts "Added Xilinx Local XVC AXI Slave: $device_name"
     
@@ -111,7 +111,10 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
     set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net  [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
     #    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
-    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
+#    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
+    set sid [AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
+    AXI_SET_ADDR ${C2C_PHY} 
+    
 
 
     
@@ -143,9 +146,12 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
     
     
     #connect external 200Mhz clock to init clocks      
-    connect_bd_net [get_bd_ports ${INIT_CLK}]   [get_bd_pins ${C2C_PHY}/init_clk]       
-    connect_bd_net [get_bd_ports ${INIT_CLK}]   [get_bd_pins ${C2C}/aurora_init_clk]
-    connect_bd_net [get_bd_ports ${INIT_CLK}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]    
+    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/init_clk]       
+    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]
+    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]    
+
+    #    validate_bd_design
+    AXI_GEN_DTSI ${C2C_PHY} $axi_interconnect $sid
     
 #    endgroup      
 }
@@ -156,7 +162,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init
     set AXI_FW ${device_name}_AXI_FW
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXI_FW}
     [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range]
-    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
+    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
     #create AXI(4LITE) firewall IPs to handle a bad C2C link
     set AXILITE_FW ${device_name}_AXILITE_FW
@@ -175,8 +181,16 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
     set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
 
-
-
+    #connect AXI interface to the firewall
+    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
+    connect_bd_net      [get_bd_pins ${device_name}/s_aclk]     [get_bd_pins $axi_clk]
+    connect_bd_net      [get_bd_pins ${device_name}/s_aresetn]  [get_bd_pins $axi_rstn]
+    AXI_SET_ADDR ${device_name} $addr_offset $addr_range
+    
+    #connect AXI LITE interface to the firewall
+    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi_lite] [get_bd_intf_pins ${AXILITE_FW}/M_AXI]
+    connect_bd_net      [get_bd_pins ${device_name}/s_axi_lite_aclk] [get_bd_pins $axi_clk]
+    AXI_SET_ADDR ${device_name} $addrLITE_offset $addrLITE_range
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
     #expose debugging signals
@@ -185,6 +199,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_status_out     [get_bd_pins ${device_name}/axi_c2c_link_status_out    ]
     make_bd_pins_external       -name ${device_name}_axi_c2c_multi_bit_error_out [get_bd_pins ${device_name}/axi_c2c_multi_bit_error_out]
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
+
     
     [C2C_AURORA ${device_name} $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
     
