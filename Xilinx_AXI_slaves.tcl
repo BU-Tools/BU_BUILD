@@ -256,8 +256,8 @@ proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     make_bd_pins_external   -name ${device_name}_overtemp_alarm    [get_bd_pins ${device_name}/ot_out]
 
     #expose i2c interface
-    make_bd_pins_external  -name ${device_name}_sda [get_bd_pins KINTEX_SYS_MGMT/i2c_sda]
-    make_bd_pins_external  -name ${device_name}_scl [get_bd_pins KINTEX_SYS_MGMT/i2c_sclk]
+    make_bd_pins_external  -name ${device_name}_sda [get_bd_pins ${device_name}/i2c_sda]
+    make_bd_pins_external  -name ${device_name}_scl [get_bd_pins ${device_name}/i2c_sclk]
     
     puts "Added Xilinx XADC AXI Slave: $device_name"
 
@@ -275,5 +275,18 @@ proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     #connect to interconnect
     [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
    
+    #connect this to a blockram
+    set BRAM_NAME ${device_name}_RAM
+    create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 ${BRAM_NAME}
+    set_property CONFIG.Memory_Type            {True_Dual_Port_RAM}   [get_bd_cells ${BRAM_NAME}]
+    set_property CONFIG.Assume_Synchronous_Clk {false}                [get_bd_cells ${BRAM_NAME}]
+
+    
+    #connect BRAM controller to BRAM
+    connect_bd_intf_net [get_bd_intf_pins ${device_name}/BRAM_PORTA] [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTA]
+
+    #make the other port external to the PL
+    make_bd_intf_pins_external  [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
+
     puts "Added Xilinx blockram: $device_name"
 }
