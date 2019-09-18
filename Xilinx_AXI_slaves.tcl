@@ -279,8 +279,8 @@ proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     #connect this to a blockram
     set BRAM_NAME ${device_name}_RAM
     create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 ${BRAM_NAME}
-    set_property CONFIG.Memory_Type            {True_Dual_Port_RAM}   [get_bd_cells TEST_BRAM_RAM]
-    set_property CONFIG.Assume_Synchronous_Clk {false}                [get_bd_cells TEST_BRAM_RAM]
+    set_property CONFIG.Memory_Type            {True_Dual_Port_RAM}   [get_bd_cells ${BRAM_NAME}]
+    set_property CONFIG.Assume_Synchronous_Clk {false}                [get_bd_cells ${BRAM_NAME}]
 
     
     #connect BRAM controller to BRAM
