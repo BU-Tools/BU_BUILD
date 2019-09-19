@@ -110,6 +110,8 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
 
     #Create an external signal interface and connect them to the axi-interconnect
     make_bd_intf_pins_external -name $AXIS_PORT_NAME  [get_bd_intf_pins  $AXIM_PORT_NAME]
+
+    set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports $AXIS_PORT_NAME]
     
     #create clk and reset (-q to skip error if it already exists)
     create_bd_port -q -dir I -type clk $axi_clk
