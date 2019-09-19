@@ -80,8 +80,15 @@ proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_fr
     puts "Added Xilinx UART AXI Slave: $device_name"
 }
 
-proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq} {
+#primary_serdes == 1 means this is the primary serdes, if not 1, then it is the name of the primary_serdes
+proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq} {
 
+    if {$primary_serdes == 1} {
+	puts "Creating ${device_name} as a primary serdes\n"
+    } else {
+	puts "Creating ${device_name} using ${primary_serdes} as the primary serdes\n"
+    }
+    
     set C2C ${device_name}
     set C2C_PHY ${C2C}_PHY    
     #create chip-2-chip aurora     
@@ -93,8 +100,12 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
     set_property CONFIG.C_LINE_RATE          {5}          [get_bd_cells ${C2C_PHY}]
 #    set_property CONFIG.C_LINE_RATE          {10}          [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_REFCLK_FREQUENCY   {100.000}    [get_bd_cells ${C2C_PHY}]  
-    set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]  
-    set_property CONFIG.SupportLevel         {1}          [get_bd_cells ${C2C_PHY}]  
+    set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
+    if {$primary_serdes == 1} {
+	set_property CONFIG.SupportLevel         {1}          [get_bd_cells ${C2C_PHY}]
+    } else {
+	set_property CONFIG.SupportLevel         {0}          [get_bd_cells ${C2C_PHY}]
+    }
     set_property CONFIG.SINGLEEND_INITCLK    {true}       [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_USE_CHIPSCOPE      {true}       [get_bd_cells ${C2C_PHY}]
     set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${C2C_PHY}]
@@ -118,8 +129,12 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
 
 
     
-    #expose the Aurora core signals to top   
-    make_bd_intf_pins_external  -name ${C2C_PHY}_refclk         [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
+    #expose the Aurora core signals to top    
+    if {$primary_serdes == 1} {
+	#these are only if the serdes is the primary one
+	make_bd_intf_pins_external  -name ${C2C_PHY}_refclk         [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
+	make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out [get_bd_pins ${C2C_PHY}/gt_refclk1_out]
+    }
     make_bd_intf_pins_external  -name ${C2C_PHY}_Rx             [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_RX]       
     make_bd_intf_pins_external  -name ${C2C_PHY}_Tx             [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_TX]
     make_bd_pins_external       -name ${C2C_PHY}_power_down     [get_bd_pins ${C2C_PHY}/power_down]       
@@ -129,26 +144,38 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
     make_bd_pins_external       -name ${C2C_PHY}_lane_up        [get_bd_pins ${C2C_PHY}/lane_up]
     make_bd_pins_external       -name ${C2C_PHY}_mmcm_not_locked_out  [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out]       
     make_bd_pins_external       -name ${C2C_PHY}_link_reset_out [get_bd_pins ${C2C_PHY}/link_reset_out]
-    make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out [get_bd_pins ${C2C_PHY}/gt_refclk1_out]
-    make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG          [get_bd_intf_pins C2C1_PHY/TRANSCEIVER_DEBUG0]
+
+    make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG          [get_bd_intf_pins ${C2C_PHY}/TRANSCEIVER_DEBUG0]
 
     
     
     #connect C2C core with the C2C-mode Auroroa core   
     connect_bd_intf_net [get_bd_intf_pins ${C2C}/AXIS_TX] [get_bd_intf_pins ${C2C_PHY}/USER_DATA_S_AXIS_TX]        
     connect_bd_intf_net [get_bd_intf_pins ${C2C_PHY}/USER_DATA_M_AXIS_RX] [get_bd_intf_pins ${C2C}/AXIS_RX]        
-    connect_bd_net [get_bd_pins ${C2C_PHY}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]     
     connect_bd_net [get_bd_pins ${C2C_PHY}/channel_up]          [get_bd_pins ${C2C}/axi_c2c_aurora_channel_up]     
-#    connect_bd_net [get_bd_pins ${C2C_PHY}/init_clk]            [get_bd_pins ${C2C}/aurora_init_clk]    
-    connect_bd_net [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
     connect_bd_net [get_bd_pins ${C2C}/aurora_pma_init_out]     [get_bd_pins ${C2C_PHY}/pma_init]        
     connect_bd_net [get_bd_pins ${C2C}/aurora_reset_pb]         [get_bd_pins ${C2C_PHY}/reset_pb]        
-    
+    if {$primary_serdes == 1} {
+	connect_bd_net [get_bd_pins ${C2C_PHY}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
+	connect_bd_net [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
+    } else {
+	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C_PHY}/user_clk]
+	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
+	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
+    }
     
     #connect external 200Mhz clock to init clocks      
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/init_clk]       
+    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]
-    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]    
+    if {$primary_serdes == 1} {
+	
+    } else {
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]   [get_bd_pins ${C2C_PHY}/refclk1_in]
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
+	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]   [get_bd_pins ${C2C_PHY}/sync_clk]
+    }
 
     #    validate_bd_design
     AXI_GEN_DTSI ${C2C_PHY} $axi_interconnect $sid
@@ -156,7 +183,7 @@ proc C2C_AURORA {device_name init_clk axi_interconnect axi_clk axi_rstn axi_freq
 #    endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init_clk {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
@@ -201,7 +228,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq init
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
 
     
-    [C2C_AURORA ${device_name} $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
+    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
     
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
@@ -274,7 +301,8 @@ proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     
     #connect to interconnect
     [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
-   
+
+
     #connect this to a blockram
     set BRAM_NAME ${device_name}_RAM
     create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 ${BRAM_NAME}
