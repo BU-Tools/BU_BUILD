@@ -76,6 +76,9 @@ proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_fr
     #generate ports for the JTAG signals
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
 
+    #connect interrupt
+    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins processing_system7_0/IRQ_F2P]
+
     
     puts "Added Xilinx UART AXI Slave: $device_name"
 }
