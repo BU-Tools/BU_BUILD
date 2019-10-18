@@ -62,7 +62,7 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
     
 }
 
-proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 $device_name
@@ -70,14 +70,14 @@ proc AXI_IP_UART {baud_rate device_name axi_interconnect axi_clk axi_rstn axi_fr
     set_property CONFIG.C_BAUDRATE $baud_rate [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range -1]
 
     
     #generate ports for the JTAG signals
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
 
     #connect interrupt
-    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins processing_system7_0/IRQ_F2P]
+    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins ${irq_port}]
 
     
     puts "Added Xilinx UART AXI Slave: $device_name"
