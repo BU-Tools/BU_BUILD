@@ -191,6 +191,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXI_FW}
+    #force mapping to the mem interface on this one. 
     [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range]
     [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
@@ -215,7 +216,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
     connect_bd_net      [get_bd_pins ${device_name}/s_aclk]     [get_bd_pins $axi_clk]
     connect_bd_net      [get_bd_pins ${device_name}/s_aresetn]  [get_bd_pins $axi_rstn]
-    AXI_SET_ADDR ${device_name} $addr_offset $addr_range
+    AXI_SET_ADDR ${device_name} $addr_offset $addr_range 1
     
     #connect AXI LITE interface to the firewall
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi_lite] [get_bd_intf_pins ${AXILITE_FW}/M_AXI]
