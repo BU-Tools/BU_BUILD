@@ -68,6 +68,22 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 
 
 
+proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
+    
+    create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${base_name}
+    set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports ${base_name}]
+    
+    #create clk and reset (-q to skip error if it already exists)
+    create_bd_port -q -dir I -type clk $axi_clk
+    create_bd_port -q -dir I -type rst $axi_rstn
+
+    #setup clk/reset parameters
+    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_ports $axi_clk]
+    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
+
+    #set bus properties
+    set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports ${base_name}]
+}
 
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
@@ -142,7 +158,7 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
 	
     }
 
-    validate_bd_design
+    validate_bd_design -quiet
     #now that the design is validated, generate the DTSI_CHUNK file
     [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXI_INTERCONNECT_SID $device_name]
     
@@ -201,7 +217,7 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     endgroup
     return $AXI_INTERCONNECT_SID
 }
-proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
+proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
 
     startgroup
     
@@ -210,10 +226,11 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
 	puts "Automatically setting $device_name address"
 	assign_bd_address [get_bd_addr_segs {$device_name/*/Reg }]
     } else {
-	puts "Manually setting $device_name address to $addr_offset $addr_range"
-	if [llength [get_bd_addr_segs ${device_name}/*Reg*]] {
+	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+	    puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
 	    assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Reg*]
 	} else {
+	    puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
 	    assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Mem*]
 	}
 	
@@ -224,7 +241,7 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
 proc AXI_GEN_DTSI {device_name axi_interconnect sid {slave_local 1}} {
 
     startgroup
-    validate_bd_design
+    validate_bd_design -quiet
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {
@@ -243,10 +260,10 @@ proc AXI_GEN_DTSI {device_name axi_interconnect sid {slave_local 1}} {
 
 }
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
-proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1} {force_mem 0}} {
 
     set sid [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
-    AXI_SET_ADDR $device_name $addr_offset $addr_range
+    AXI_SET_ADDR $device_name $addr_offset $addr_range $force_mem
     AXI_GEN_DTSI $device_name $axi_interconnect $sid $slave_local    
 }
 
@@ -301,7 +318,7 @@ proc AXI_LITE_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_fre
         connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
 
-    validate_bd_design
+    validate_bd_design -quiet
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {
@@ -353,7 +370,7 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
     connect_bd_net  -quiet  [get_bd_pins $device_name/aclk]             [get_bd_pins $axi_clk]
     connect_bd_net  -quiet  [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
 
-    validate_bd_design
+    validate_bd_design -quiet
 
     #Add this to the list of slave we need to make dtsi files for
     if {$slave_local == 1} {
