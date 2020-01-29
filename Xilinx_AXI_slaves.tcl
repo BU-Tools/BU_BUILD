@@ -164,7 +164,7 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
 	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C_PHY}/user_clk]
 	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
 	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
-	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C_PHY}/mmcm_not_locked]        
+#	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C_PHY}/mmcm_not_locked]        
     }
     
     #connect external 200Mhz clock to init clocks      
