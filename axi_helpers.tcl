@@ -217,7 +217,7 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     endgroup
     return $AXI_INTERCONNECT_SID
 }
-proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
+proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
 
     startgroup
     
@@ -226,10 +226,11 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K}} {
 	puts "Automatically setting $device_name address"
 	assign_bd_address [get_bd_addr_segs {$device_name/*/Reg }]
     } else {
-	puts "Manually setting $device_name address to $addr_offset $addr_range"
-	if [llength [get_bd_addr_segs ${device_name}/*Reg*]] {
+	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+	    puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
 	    assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Reg*]
 	} else {
+	    puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
 	    assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Mem*]
 	}
 	
@@ -259,10 +260,10 @@ proc AXI_GEN_DTSI {device_name axi_interconnect sid {slave_local 1}} {
 
 }
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
-proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1} {force_mem 0}} {
 
     set sid [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
-    AXI_SET_ADDR $device_name $addr_offset $addr_range
+    AXI_SET_ADDR $device_name $addr_offset $addr_range $force_mem
     AXI_GEN_DTSI $device_name $axi_interconnect $sid $slave_local    
 }
 
