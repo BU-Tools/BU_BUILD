@@ -388,3 +388,9 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
     endgroup
 }
 
+
+proc BUILD_JTAG_AXI_MASTER {device_name axi_clk axi_rstn} {
+    create_bd_cell -type ip -vlnv xilinx.com:ip:jtag_axi:1.2 ${device_name}
+    connect_bd_net [get_bd_ports ${axi_clk}] [get_bd_pins ${device_name}/aclk]
+    connect_bd_net [get_bd_pins  ${device_name}/aresetn] [get_bd_pins ${axi_rstn}]
+}
