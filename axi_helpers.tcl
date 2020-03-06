@@ -68,7 +68,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 
 
 
-proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
+proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE}} {
     
     create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${base_name}
     set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports ${base_name}]
@@ -82,8 +82,9 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
     set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
 
     #set bus properties
-    set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports ${base_name}]
+    set_property CONFIG.PROTOCOL ${type} [get_bd_intf_ports ${base_name}]
 }
+
 
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
@@ -97,7 +98,7 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
 #  axi_reset_n: the reset used for this axi slave/master channel
 #  axi_clk_freq: the frequency of the AXI clock used for slave/master
 
-proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K}} {
+proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {type AXI4LITE}} {
     global AXI_INTERCONNECT_SIZE
     
     startgroup
@@ -143,7 +144,7 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
 
 
     #set bus properties
-    set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports $AXIS_PORT_NAME]
+    set_property CONFIG.PROTOCOL ${type} [get_bd_intf_ports $AXIS_PORT_NAME]
     set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_ports $axi_clk]
 
     
