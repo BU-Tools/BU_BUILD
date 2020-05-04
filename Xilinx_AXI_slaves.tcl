@@ -172,12 +172,15 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]
     if {$primary_serdes == 1} {
-	
+	#provide a clk output of the C2C_PHY user clock 
+	create_bd_port -dir O -type clk ${C2C_PHY}_CLK
+        connect_bd_net [get_bd_ports ${C2C_PHY}_CLK] [get_bd_pins ${C2C_PHY}/user_clk_out]	
     } else {
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]   [get_bd_pins ${C2C_PHY}/refclk1_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
+	#connect up clocking resource to primary C2C_PHY
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]            [get_bd_pins ${C2C_PHY}/refclk1_in]
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
 	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]   [get_bd_pins ${C2C_PHY}/sync_clk]
+	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
     }
 
     #    validate_bd_design
