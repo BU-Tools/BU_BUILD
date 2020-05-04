@@ -84,7 +84,7 @@ proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rs
 }
 
 #primary_serdes == 1 means this is the primary serdes, if not 1, then it is the name of the primary_serdes
-proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq} {
+proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq refclk_freq} {
 
     if {$primary_serdes == 1} {
 	puts "Creating ${device_name} as a primary serdes\n"
@@ -102,7 +102,7 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
     #set_property CONFIG.C_AURORA_LANES       {2}          [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_LINE_RATE          {5}          [get_bd_cells ${C2C_PHY}]
 #    set_property CONFIG.C_LINE_RATE          {10}          [get_bd_cells ${C2C_PHY}]  
-    set_property CONFIG.C_REFCLK_FREQUENCY   {100.000}    [get_bd_cells ${C2C_PHY}]  
+    set_property CONFIG.C_REFCLK_FREQUENCY   ${refclk_freq}    [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
     if {$primary_serdes == 1} {
 	set_property CONFIG.SupportLevel         {1}          [get_bd_cells ${C2C_PHY}]
@@ -189,7 +189,7 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
 #    endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk refclk_freq {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
@@ -235,7 +235,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
 
     
-    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
+    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq $refclk_freq]
     
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
