@@ -132,17 +132,14 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     
     #create clk and reset (-q to skip error if it already exists)
     if ![llength [get_bd_ports -quiet $axi_clk]] {
-	create_bd_port -q -dir I -type clk $axi_clk
+	create_bd_port -quiet -dir I -type clk $axi_clk
     }
     if ![llength [get_bd_ports -quiet $axi_rstn]] {
-	create_bd_port -q -dir I -type rst $axi_rstn
+	create_bd_port -quiet -dir I -type rst $axi_rstn
     }
 
-    #setup clk/reset parameters
-    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_ports $axi_clk]
-    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
 
-    #connect AXI clk/reest ports to AXI interconnect master
+    #connect AXI clk/reest ports to AXI interconnect master and setup parameters
     if [llength [get_bd_ports -quiet $axi_clk]] {
 	connect_bd_net [get_bd_ports $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
     } else {
@@ -150,14 +147,20 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     }
 
     if [llength [get_bd_ports -quiet $axi_rstn]] {
-	connect_bd_net [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
+	connect_bd_net [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]       
     } else {
 	connect_bd_net [get_bd_pins $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
     }
 
     #set bus properties
-    set_property CONFIG.PROTOCOL ${type} [get_bd_intf_ports $AXIS_PORT_NAME]
-    set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_ports $axi_clk]
+    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_intf_ports ${AXIS_PORT_NAME}]
+    set_property CONFIG.PROTOCOL         ${type}    [get_bd_intf_ports $AXIS_PORT_NAME]
+    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_intf_ports ${AXIS_PORT_NAME}]
+    if [llength [get_bd_ports -quiet $axi_clk]] {
+	set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_ports $axi_clk]
+    } else {
+	set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_pins $axi_clk]
+    }
 
     
     #add addressing
