@@ -49,10 +49,9 @@ proc AXI_IP_AXI_MONITOR {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn dev
 
 	puts "$iMon:  $spy_AXI"
     }
-
     #connect to AXI, clk, and reset between slave and master
     [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
-
+    puts "Finished Xilinx AXI Monitor: $device_name"
 }
 
 proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
