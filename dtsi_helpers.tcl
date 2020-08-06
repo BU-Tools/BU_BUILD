@@ -18,11 +18,9 @@ proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
 proc AXI_DEV_UIO_DTSI_CHUNK {axi_interconnect_name axi_master_name device_name} {
     global dtsi_output_path
     puts ${axi_master_name}
-    #    set addr       [format %X [get_property "CONFIG.${axi_master_name}_A00_BASE_ADDR" [get_bd_cells "${axi_interconnect_name}/xbar"]]]
-    #    set addr_width [get_property "CONFIG.${axi_master_name}_A00_ADDR_WIDTH" [get_bd_cells "${axi_interconnect_name}/xbar"]]
-    #    set addr_range [format %X [expr 1 << $addr_width]]
-    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *${device_name}*]] 1] ]
-    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *${device_name}*]] 1] ]
+
+    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
 
     
     #build dtsi file for this for later    
