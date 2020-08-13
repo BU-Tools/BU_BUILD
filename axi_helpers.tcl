@@ -1,4 +1,4 @@
-source ../bd/dtsi_helpers.tcl
+source ${apollo_root_path}/bd/dtsi_helpers.tcl
 
 proc clear_global {variable} {
     upvar $variable testVar

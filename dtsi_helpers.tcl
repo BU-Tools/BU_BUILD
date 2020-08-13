@@ -1,4 +1,4 @@
-set dtsi_output_path "kernel/hw"
+set dtsi_output_path "${apollo_root_path}/kernel/hw"
 
 #This function writes a dtsi_post_chunk file to append a XILINX axi slave so it
 #  can be used as a UIO device.
@@ -6,7 +6,7 @@ set dtsi_output_path "kernel/hw"
 proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
     global dtsi_output_path
     assign_bd_address [get_bd_addr_segs {${device_name}/S_AXI/Reg }]
-    set dtsi_file [open "../${dtsi_output_path}/${device_name}.dtsi_post_chunk" w+]
+    set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_post_chunk" w+]
     puts $dtsi_file "  &${device_name}{"
     puts $dtsi_file "    compatible = \"generic-uio\";"
     puts $dtsi_file "      label = \"$device_name\";"
@@ -24,7 +24,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK {axi_interconnect_name axi_master_name device_name} 
 
     
     #build dtsi file for this for later    
-    set dtsi_file [open "../${dtsi_output_path}/$device_name.dtsi_chunk" w+]
+    set dtsi_file [open "${dtsi_output_path}/$device_name.dtsi_chunk" w+]
     puts $dtsi_file "  amba_pl {"
     puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
     puts $dtsi_file "      compatible = \"generic-uio\";"

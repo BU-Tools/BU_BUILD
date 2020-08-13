@@ -1,4 +1,4 @@
-source ../bd/axi_helpers.tcl
+source ${apollo_root_path}/bd/axi_helpers.tcl
 proc AXI_IP_AXI_MONITOR {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 4K} {slave_local 1}} {
     set mon_slots 0
     #check for an axi bus size mismatch
