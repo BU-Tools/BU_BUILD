@@ -6,6 +6,8 @@ set dtsi_output_path "${apollo_root_path}/kernel/hw"
 proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
     global dtsi_output_path
     assign_bd_address [get_bd_addr_segs {${device_name}/S_AXI/Reg }]
+    #make sure the output folder exists
+    file mkdir ${dtsi_output_path}
     set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_post_chunk" w+]
     puts $dtsi_file "  &${device_name}{"
     puts $dtsi_file "    compatible = \"generic-uio\";"
@@ -21,6 +23,9 @@ proc AXI_DEV_UIO_DTSI_CHUNK {axi_interconnect_name axi_master_name device_name} 
 
     set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
     set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+
+    #make sure the output folder exists
+    file mkdir ${dtsi_output_path}
 
     
     #build dtsi file for this for later    
