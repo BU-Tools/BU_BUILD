@@ -26,7 +26,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     #================================================================================
     #  Create an AXI interconnect
     #================================================================================    
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 $AXI_INTERCONNECT_NAME
+    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_interconnect && UPGRADE_VERSIONS == "" }] $AXI_INTERCONNECT_NAME
         
     #connect this interconnect clock and reset signals (do quiet incase the type of the signal is different)
     connect_bd_net -q [get_bd_pins  $clk]   [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
@@ -406,7 +406,7 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
 
 
 proc BUILD_JTAG_AXI_MASTER {device_name axi_clk axi_rstn} {
-    create_bd_cell -type ip -vlnv xilinx.com:ip:jtag_axi:1.2 ${device_name}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == jtag_axi }] ${device_name}
     connect_bd_net [get_bd_ports ${axi_clk}] [get_bd_pins ${device_name}/aclk]
     connect_bd_net [get_bd_pins  ${device_name}/aresetn] [get_bd_pins ${axi_rstn}]
 }
