@@ -1,7 +1,62 @@
-source ../bd/axi_helpers.tcl
+source ${apollo_root_path}/bd/axi_helpers.tcl
+proc AXI_IP_AXI_MONITOR {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 4K} {slave_local 1}} {
+    set mon_slots 0
+    #check for an axi bus size mismatch
+    if {[llength mon_axi] != [llength mon_clk] || [llength mon_axi] != [llength mon_rstn]} then {
+	error "master size mismatch"
+    }
+    set mon_slots [llength $mon_axi]
+    
+
+
+    #create device
+    set NAME ${device_name}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_perf_mon}] ${NAME}
+    set_property CONFIG.C_ENABLE_EVENT_COUNT {1}          [get_bd_cells ${NAME}]
+    set_property CONFIG.C_NUM_MONITOR_SLOTS  ${mon_slots} [get_bd_cells ${NAME}]
+    set_property CONFIG.ENABLE_EXT_TRIGGERS  {0}          [get_bd_cells ${NAME}]
+    set_property CONFIG.C_ENABLE_ADVANCED    {1}          [get_bd_cells ${NAME}]
+    set_property CONFIG.C_ENABLE_PROFILE     {0}          [get_bd_cells ${NAME}]
+    set_property CONFIG.C_ENABLE_PROFILE     {0}          [get_bd_cells ${NAME}]
+    #set the number of counters
+    set_property CONFIG.C_NUM_OF_COUNTERS   {10}          [get_bd_cells ${NAME}]
+
+    connect_bd_net [get_bd_pins [format "/%s/core_aclk" ${device_name} ] ] [get_bd_pins ${core_clk}] 
+    connect_bd_net [get_bd_pins [format "/%s/core_aresetn" ${device_name} ] ] [get_bd_pins ${core_rstn}] 
+
+    puts "Added Xilinx AXI monitor & AXI Slave: $device_name"
+    puts "Monitoring: "
+   
+    #connect up the busses to be comonitored
+    for {set iMon 0} {$iMon < ${mon_slots}} {incr iMon} {
+	set slot_AXI [format "/%s/SLOT_%d_AXI" ${device_name} $iMon]
+	set slot_clk [format "/%s/slot_%d_axi_aclk" ${device_name} $iMon]
+	set slot_rstn [format "/%s/slot_%d_axi_aresetn" ${device_name} $iMon]
+
+	set spy_AXI [lindex ${mon_axi} $iMon]
+	set spy_clk [lindex ${mon_axi_clk} $iMon]
+	set spy_rstn [lindex ${mon_axi_rstn} $iMon]
+
+	set_property CONFIG.C_SLOT_${iMon}_AXI_PROTOCOL [get_property CONFIG.PROTOCOL [get_bd_intf_pins ${spy_AXI}]] [get_bd_cells ${NAME}]
+
+
+	#connect the AXI bus
+	connect_bd_intf_net [get_bd_intf_pins ${slot_AXI}] -boundary_type upper [get_bd_intf_pins ${spy_AXI} ]
+	#connet the AXI bus clock
+	connect_bd_net [get_bd_pins ${slot_clk}] [get_bd_pins ${spy_clk}]
+	#connet the AXI bus resetn
+	connect_bd_net [get_bd_pins ${slot_rstn}] [get_bd_pins ${spy_rstn}]
+
+	puts "$iMon:  $spy_AXI"
+    }
+    #connect to AXI, clk, and reset between slave and master
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    puts "Finished Xilinx AXI Monitor: $device_name"
+}
+
 proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_iic:2.0 $device_name
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_iic}] $device_name
 
     #create external pins
     make_bd_pins_external  -name ${device_name}_scl_i [get_bd_pins $device_name/scl_i]
@@ -19,7 +74,7 @@ proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_of
 proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     #Create a xilinx axi debug bridge
-    create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 $device_name
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name
     #configure the debug bridge to be 
     set_property CONFIG.C_DEBUG_MODE  {3} [get_bd_cells $device_name]
     set_property CONFIG.C_DESIGN_TYPE {0} [get_bd_cells $device_name]
@@ -38,7 +93,7 @@ proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_of
 proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     #Create a xilinx axi debug bridge
-    create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 $device_name
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name
     #configure the debug bridge to be 
     set_property CONFIG.C_DEBUG_MODE {2}     [get_bd_cells $device_name]
     set_property CONFIG.C_BSCAN_MUX {2}      [get_bd_cells $device_name]
@@ -54,7 +109,7 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
 
 
     #test
-    create_bd_cell -type ip -vlnv xilinx.com:ip:debug_bridge:3.0 debug_bridge_0
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge }] debug_bridge_0
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/m0_bscan] [get_bd_intf_pins debug_bridge_0/S_BSCAN]
     connect_bd_net [get_bd_pins debug_bridge_0/clk] [get_bd_pins $axi_clk]
 
@@ -65,7 +120,7 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
 proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     #Create a xilinx UART
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 $device_name
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
     #configure the debug bridge to be
     set_property CONFIG.C_BAUDRATE $baud_rate [get_bd_cells $device_name]
 
@@ -84,7 +139,7 @@ proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rs
 }
 
 #primary_serdes == 1 means this is the primary serdes, if not 1, then it is the name of the primary_serdes
-proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq} {
+proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq refclk_freq} {
 
     if {$primary_serdes == 1} {
 	puts "Creating ${device_name} as a primary serdes\n"
@@ -96,13 +151,13 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
     set C2C_PHY ${C2C}_PHY    
     #create chip-2-chip aurora     
 #    startgroup 
-    create_bd_cell -type ip -vlnv xilinx.com:ip:aurora_64b66b:11.2 ${C2C_PHY}        
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == aurora_64b66b }] ${C2C_PHY}        
     set_property CONFIG.C_INIT_CLK.VALUE_SRC PROPAGATED   [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_AURORA_LANES       {1}          [get_bd_cells ${C2C_PHY}]
     #set_property CONFIG.C_AURORA_LANES       {2}          [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_LINE_RATE          {5}          [get_bd_cells ${C2C_PHY}]
 #    set_property CONFIG.C_LINE_RATE          {10}          [get_bd_cells ${C2C_PHY}]  
-    set_property CONFIG.C_REFCLK_FREQUENCY   {100.000}    [get_bd_cells ${C2C_PHY}]  
+    set_property CONFIG.C_REFCLK_FREQUENCY   ${refclk_freq}    [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
     if {$primary_serdes == 1} {
 	set_property CONFIG.SupportLevel         {1}          [get_bd_cells ${C2C_PHY}]
@@ -121,14 +176,13 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
     
     #connect to interconnect (init clock)
     set C2C_ARST ${C2C_PHY}_AXI_LITE_RESET_INVERTER
-    create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 ${C2C_ARST}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
     set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net  [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
     #    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
 #    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
     set sid [AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
-    AXI_SET_ADDR ${C2C_PHY} 
-    
+    AXI_SET_ADDR ${C2C_PHY}    
 
 
     
@@ -165,6 +219,7 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
 	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C_PHY}/user_clk]
 	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
 	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
+#	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C_PHY}/mmcm_not_locked]        
     }
     
     #connect external 200Mhz clock to init clocks      
@@ -172,12 +227,15 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]
     if {$primary_serdes == 1} {
-	
+	#provide a clk output of the C2C_PHY user clock 
+	create_bd_port -dir O -type clk ${C2C_PHY}_CLK
+        connect_bd_net [get_bd_ports ${C2C_PHY}_CLK] [get_bd_pins ${C2C_PHY}/user_clk_out]	
     } else {
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]   [get_bd_pins ${C2C_PHY}/refclk1_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
+	#connect up clocking resource to primary C2C_PHY
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]            [get_bd_pins ${C2C_PHY}/refclk1_in]
+	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
 	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]   [get_bd_pins ${C2C_PHY}/sync_clk]
+	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
     }
 
     #    validate_bd_design
@@ -186,23 +244,23 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
 #    endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk refclk_freq {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXI_FW}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXI_FW}
     #force mapping to the mem interface on this one. 
     [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range]
     [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
     #create AXI(4LITE) firewall IPs to handle a bad C2C link
     set AXILITE_FW ${device_name}_AXILITE_FW
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_firewall:1.0 ${AXILITE_FW}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXILITE_FW}
     [AXI_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $addrLITE_offset $addrLITE_range]
     [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
     #create the actual C2C master
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_chip2chip:5.0 $device_name
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
     set_property CONFIG.C_AXI_STB_WIDTH {4}         [get_bd_cells $device_name]
     set_property CONFIG.C_AXI_DATA_WIDTH {32}	    [get_bd_cells $device_name]
     set_property CONFIG.C_NUM_OF_IO {58.0}	    [get_bd_cells $device_name]
@@ -232,7 +290,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
 
     
-    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq]
+    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq $refclk_freq]
     
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
@@ -240,7 +298,7 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
 
 proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     #create XADC AXI slave 
-    create_bd_cell -type ip -vlnv xilinx.com:ip:xadc_wiz:3.3 ${device_name}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == xadc_wiz }] ${device_name}
 
     #disable default user temp monitoring
     set_property CONFIG.USER_TEMP_ALARM {false} [get_bd_cells ${device_name}]
@@ -268,7 +326,7 @@ proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     
     #create system management AXIL lite slave
-    create_bd_cell -type ip -vlnv xilinx.com:ip:system_management_wiz:1.3 ${device_name}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == system_management_wiz }] ${device_name}
 
     #disable default user temp monitoring
     set_property CONFIG.USER_TEMP_ALARM {false}        [get_bd_cells ${device_name}]
@@ -298,7 +356,7 @@ proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
 
     #create XADC AXI slave 
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.0 ${device_name}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_bram_ctrl }] ${device_name}
 
     set_property CONFIG.SINGLE_PORT_BRAM {1} [get_bd_cells ${device_name}]
 
@@ -309,7 +367,7 @@ proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 
     #connect this to a blockram
     set BRAM_NAME ${device_name}_RAM
-    create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 ${BRAM_NAME}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == blk_mem_gen }] ${BRAM_NAME}
     set_property CONFIG.Memory_Type            {True_Dual_Port_RAM}   [get_bd_cells ${BRAM_NAME}]
     set_property CONFIG.Assume_Synchronous_Clk {false}                [get_bd_cells ${BRAM_NAME}]
 

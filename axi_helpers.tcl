@@ -1,4 +1,4 @@
-source ../bd/dtsi_helpers.tcl
+source ${apollo_root_path}/bd/dtsi_helpers.tcl
 
 proc clear_global {variable} {
     upvar $variable testVar
@@ -26,7 +26,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     #================================================================================
     #  Create an AXI interconnect
     #================================================================================    
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 $AXI_INTERCONNECT_NAME
+    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_interconnect && UPGRADE_VERSIONS == "" }] $AXI_INTERCONNECT_NAME
         
     #connect this interconnect clock and reset signals (do quiet incase the type of the signal is different)
     connect_bd_net -q [get_bd_pins  $clk]   [get_bd_pins $AXI_INTERCONNECT_NAME/ACLK]
@@ -68,7 +68,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 
 
 
-proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
+proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE}} {
     
     create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${base_name}
     set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports ${base_name}]
@@ -82,8 +82,9 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
     set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
 
     #set bus properties
-    set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports ${base_name}]
+    set_property CONFIG.PROTOCOL ${type} [get_bd_intf_ports ${base_name}]
 }
+
 
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
@@ -97,7 +98,7 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq} {
 #  axi_reset_n: the reset used for this axi slave/master channel
 #  axi_clk_freq: the frequency of the AXI clock used for slave/master
 
-proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K}} {
+proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {type AXI4LITE}} {
     global AXI_INTERCONNECT_SIZE
     
     startgroup
@@ -130,21 +131,36 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports $AXIS_PORT_NAME]
     
     #create clk and reset (-q to skip error if it already exists)
-    create_bd_port -q -dir I -type clk $axi_clk
-    create_bd_port -q -dir I -type rst $axi_rstn
+    if ![llength [get_bd_ports -quiet $axi_clk]] {
+	create_bd_port -quiet -dir I -type clk $axi_clk
+    }
+    if ![llength [get_bd_ports -quiet $axi_rstn]] {
+	create_bd_port -quiet -dir I -type rst $axi_rstn
+    }
 
-    #setup clk/reset parameters
-    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_ports $axi_clk]
-    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
 
-    #connect AXI clk/reest ports to AXI interconnect master
-    connect_bd_net [get_bd_ports $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
-    connect_bd_net [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
+    #connect AXI clk/reest ports to AXI interconnect master and setup parameters
+    if [llength [get_bd_ports -quiet $axi_clk]] {
+	connect_bd_net [get_bd_ports $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
+    } else {
+	connect_bd_net [get_bd_pins $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
+    }
 
+    if [llength [get_bd_ports -quiet $axi_rstn]] {
+	connect_bd_net [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]       
+    } else {
+	connect_bd_net [get_bd_pins $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
+    }
 
     #set bus properties
-    set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports $AXIS_PORT_NAME]
-    set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_ports $axi_clk]
+    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_intf_ports ${AXIS_PORT_NAME}]
+    set_property CONFIG.PROTOCOL         ${type}    [get_bd_intf_ports $AXIS_PORT_NAME]
+    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_intf_ports ${AXIS_PORT_NAME}]
+    if [llength [get_bd_ports -quiet $axi_clk]] {
+	set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_ports $axi_clk]
+    } else {
+	set_property CONFIG.ASSOCIATED_BUSIF  $device_name [get_bd_pins $axi_clk]
+    }
 
     
     #add addressing
@@ -388,3 +404,9 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
     endgroup
 }
 
+
+proc BUILD_JTAG_AXI_MASTER {device_name axi_clk axi_rstn} {
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == jtag_axi }] ${device_name}
+    connect_bd_net [get_bd_ports ${axi_clk}] [get_bd_pins ${device_name}/aclk]
+    connect_bd_net [get_bd_pins  ${device_name}/aresetn] [get_bd_pins ${axi_rstn}]
+}
