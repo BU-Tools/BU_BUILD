@@ -68,10 +68,11 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 
 
 
-proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE}} {
+proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {axi_width 32}} {
     
     create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${base_name}
     set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports ${base_name}]
+    set_property CONFIG.ADDR_WIDTH ${axi_width} [get_bd_intf_ports ${base_name}]
     
     #create clk and reset (-q to skip error if it already exists)
     create_bd_port -q -dir I -type clk $axi_clk
@@ -100,6 +101,7 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE}} {
 
 proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {type AXI4LITE}} {
     global AXI_INTERCONNECT_SIZE
+    global AXI_ADDR_WIDTH
     
     startgroup
     
@@ -129,6 +131,15 @@ proc AXI_PL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq 
     make_bd_intf_pins_external -name $AXIS_PORT_NAME  [get_bd_intf_pins  $AXIM_PORT_NAME]
 
     set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports $AXIS_PORT_NAME]
+    #set the AXI address widths
+
+    if {[info exists AXI_ADDR_WIDTH]} {
+	set_property CONFIG.ADDR_WIDTH ${AXI_ADDR_WIDTH} [get_bd_intf_ports $AXIS_PORT_NAME]
+	puts "Using $AXI_ADDR_WIDTH-bit AXI address"
+    } else {
+	set_property CONFIG.ADDR_WIDTH 32 [get_bd_intf_ports $AXIS_PORT_NAME]
+	puts "Using 32-bit AXI address"
+    }
     
     #create clk and reset (-q to skip error if it already exists)
     if ![llength [get_bd_ports -quiet $axi_clk]] {
