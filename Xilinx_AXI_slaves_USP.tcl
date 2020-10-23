@@ -323,7 +323,7 @@ proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 
 
 
-proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_SYS_MGMT {enable_i2c_pins device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
     
     #create system management AXIL lite slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == system_management_wiz }] ${device_name}
@@ -331,8 +331,11 @@ proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     #disable default user temp monitoring
     set_property CONFIG.USER_TEMP_ALARM {false}        [get_bd_cells ${device_name}]
     #add i2c interface
-    set_property CONFIG.SERIAL_INTERFACE {Enable_I2C}  [get_bd_cells ${device_name}]
-    set_property CONFIG.I2C_ADDRESS_OVERRIDE {false}   [get_bd_cells ${device_name}]
+    #add i2c interface
+    if {$enable_i2c_pins} {
+      set_property CONFIG.SERIAL_INTERFACE {Enable_I2C}  [get_bd_cells ${device_name}]
+      set_property CONFIG.I2C_ADDRESS_OVERRIDE {false}   [get_bd_cells ${device_name}]
+    }
     
     #connect to interconnect
     [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
