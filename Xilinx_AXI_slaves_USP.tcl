@@ -347,10 +347,12 @@ proc AXI_IP_SYS_MGMT {enable_i2c_pins device_name axi_interconnect axi_clk axi_r
     make_bd_pins_external   -name ${device_name}_vccaux_alarm      [get_bd_pins ${device_name}/vccaux_alarm_out]
     make_bd_pins_external   -name ${device_name}_overtemp_alarm    [get_bd_pins ${device_name}/ot_out]
 
-    #expose i2c interface
-    make_bd_pins_external  -name ${device_name}_sda [get_bd_pins ${device_name}/i2c_sda]
-    make_bd_pins_external  -name ${device_name}_scl [get_bd_pins ${device_name}/i2c_sclk]
-    
+    if {$enable_i2c_pins} {
+	#expose i2c interface
+	make_bd_pins_external  -name ${device_name}_sda [get_bd_pins ${device_name}/i2c_sda]
+	make_bd_pins_external  -name ${device_name}_scl [get_bd_pins ${device_name}/i2c_sclk]
+    }
+
     puts "Added Xilinx XADC AXI Slave: $device_name"
 
 }
