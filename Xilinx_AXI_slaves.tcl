@@ -1,5 +1,22 @@
 source ${apollo_root_path}/bd/axi_helpers.tcl
-proc AXI_IP_AXI_MONITOR {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 4K} {slave_local 1}} {
+
+proc set_default {dict key default} {
+    if {[dict exists $dict $key]} {
+        return [dict get $dict $key ]
+    } else {
+        return $default
+    }
+}
+
+proc AXI_IP_AXI_MONITOR {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+    set_required_values $params {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 4K remote_slave 0]
+
     set mon_slots 0
     #check for an axi bus size mismatch
     if {[llength mon_axi] != [llength mon_clk] || [llength mon_axi] != [llength mon_rstn]} then {
@@ -50,11 +67,17 @@ proc AXI_IP_AXI_MONITOR {mon_axi mon_axi_clk mon_axi_rstn core_clk core_rstn dev
 	puts "$iMon:  $spy_AXI"
     }
     #connect to AXI, clk, and reset between slave and master
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
     puts "Finished Xilinx AXI Monitor: $device_name"
 }
 
-proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_I2C {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 64K remote_slave 0]
 
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_iic}] $device_name
 
@@ -66,12 +89,20 @@ proc AXI_IP_I2C {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_of
     make_bd_pins_external  -name ${device_name}_scl_t [get_bd_pins $device_name/scl_t]
     make_bd_pins_external  -name ${device_name}_sda_t [get_bd_pins $device_name/sda_t]
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
     puts "Added Xilinx I2C AXI Slave: $device_name"
 }
 
-proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_XVC {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 \
+                                            addr_range 64K \
+                                            remote_slave 0]
 
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name
@@ -80,7 +111,7 @@ proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_of
     set_property CONFIG.C_DESIGN_TYPE {0} [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
     
     #generate ports for the JTAG signals
@@ -90,7 +121,15 @@ proc AXI_IP_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_of
     puts "Added Xilinx XVC AXI Slave: $device_name"
 }
 
-proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_LOCAL_XVC {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 \
+                                            addr_range 64K \
+                                            remote_slave 0]
 
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name
@@ -105,7 +144,7 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
 
     
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
 
     #test
@@ -117,7 +156,16 @@ proc AXI_IP_LOCAL_XVC {device_name axi_interconnect axi_clk axi_rstn axi_freq {a
     
 }
 
-proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_UART {params} {
+
+
+    # required values
+    set_required_values $params {baud_rate irq_port device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 \
+                                            addr_range 64K \
+                                            remote_slave 0]
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
@@ -139,7 +187,11 @@ proc AXI_IP_UART {baud_rate irq_port device_name axi_interconnect axi_clk axi_rs
 }
 
 #primary_serdes == 1 means this is the primary serdes, if not 1, then it is the name of the primary_serdes
-proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk axi_rstn axi_freq refclk_freq} {
+proc C2C_AURORA {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+    set_required_values $params {primary_serdes init_clk refclk_freq}
 
     if {$primary_serdes == 1} {
 	puts "Creating ${device_name} as a primary serdes\n"
@@ -244,7 +296,14 @@ proc C2C_AURORA {device_name primary_serdes init_clk axi_interconnect axi_clk ax
 #    endgroup      
 }
 
-proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq primary_serdes init_clk refclk_freq {addr_offset -1} {addr_range 64K} {addrLITE_offset -1} {addrLITE_range 64K} } {
+proc AXI_C2C_MASTER {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+    set_required_values $params {primary_serdes init_clk refclk_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 64K addrLITE_offset -1 addrLITE_range 64K]
 
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
@@ -290,13 +349,27 @@ proc AXI_C2C_MASTER {device_name axi_interconnect axi_clk axi_rstn axi_freq prim
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_error_out      [get_bd_pins ${device_name}/axi_c2c_link_error_out     ]
 
     
-    [C2C_AURORA ${device_name} $primary_serdes $init_clk $axi_interconnect $axi_clk $axi_rstn $axi_freq $refclk_freq]
+    C2C_AURORA [dict create device_name ${device_name} \
+                     axi_interconnect $axi_interconnect \
+                     primary_serdes $primary_serdes \
+                     init_clk $init_clk \
+                     axi_clk $axi_clk \
+                     axi_rstn $axi_rstn \
+                     axi_freq $axi_freq \
+                     refclk_freq $refclk_freq]
     
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
 }
 
-proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_XADC {params} {
+
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 64k remote_slave 0]
+
     #create XADC AXI slave 
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == xadc_wiz }] ${device_name}
 
@@ -305,7 +378,7 @@ proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
     
     #expose alarms
@@ -321,9 +394,13 @@ proc AXI_IP_XADC {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 
 }
 
+proc AXI_IP_SYS_MGMT {params} {
 
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
 
-proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 64k remote_slave 0]
     
     #create system management AXIL lite slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == system_management_wiz }] ${device_name}
@@ -335,7 +412,7 @@ proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
     set_property CONFIG.I2C_ADDRESS_OVERRIDE {false}   [get_bd_cells ${device_name}]
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
     
     #expose alarms
@@ -353,16 +430,22 @@ proc AXI_IP_SYS_MGMT {device_name axi_interconnect axi_clk axi_rstn axi_freq {ad
 }
 
 
-proc AXI_IP_BRAM {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+proc AXI_IP_BRAM {params} {
 
-    #create XADC AXI slave 
+    # required values
+    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create addr_offset -1 addr_range 64k remote_slave 0]
+
+    #create XADC AXI slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_bram_ctrl }] ${device_name}
 
     set_property CONFIG.SINGLE_PORT_BRAM {1} [get_bd_cells ${device_name}]
 
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $slave_local]
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
 
 
     #connect this to a blockram
