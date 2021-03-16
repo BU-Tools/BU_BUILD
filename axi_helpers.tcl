@@ -19,25 +19,56 @@ proc clear_global {variable} {
     }
 }
 
+proc is_dict {value} {
+    return [expr {[string is list $value] && ([llength $value]&1) == 0}]
+}
+
 proc set_required_values {params required_params} {
     foreach key $required_params  {
         if {[dict exists $params $key]} {
-            upvar 1 $key x                    ;# tie the calling value to variable x
-            set x [dict get $params $key]
+            set val [dict get $params $key]
+            if {[is_dict $val]} {
+                # handle dictionary arguments
+                # puts [dict size $val]
+                foreach subkey [dict keys $val] {
+                    upvar 1 $subkey x ;# tie the calling value to variable x
+                    set x [subst [dict get $val $subkey]]
+                }
+            } else {
+                # handle non-dictionary arguments
+                upvar 1 $key x ;# tie the calling value to variable x
+                set x $val
+            }
         } else {
             error "Required parameter $key not found in:\n    $params"
-        }
-    }
-}
+        }}}
 
 proc set_optional_values {params optional_params} {
+
     foreach key [dict keys $optional_params]  {
-        puts $key
-        upvar 1 $key x                    ;# tie the calling value to variable x
-        puts [dict get $optional_params $key]
-        set x [set_default $params $key [dict get $optional_params $key]]
-    }
-}
+        set def_val [dict get $optional_params $key]
+
+        # dictionary type parameters
+        if {[is_dict $def_val]} {
+
+            # check if the optional dictionary even exists
+            # if not just use the default values
+            if {[dict exists $params $key]} {
+                set set_dict [dict get $params $key]
+            } else {
+                set set_dict $def_val
+            }
+
+            foreach subkey [dict keys $def_val] {
+                upvar 1 $subkey x ;# tie the calling value to variable x
+                set x [set_default $set_dict $subkey [dict get $def_val $subkey]]
+            }
+
+        } else {
+            # non-dictionary type parameters
+            upvar 1 $key x; # tie the calling value to variable x
+            set x [set_default $params $key $def_val]
+        }}}
 
 proc AXI_GET_INTERCONNECT_SIZE {interconnect} {
     return [get_property CONFIG.NUM_MI [get_bd_cells $interconnect]]
@@ -179,10 +210,10 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {ax
 proc AXI_PL_DEV_CONNECT {params} {
 
     # required values
-    set_required_values $params {device_name axi_interconnect axi_clk axi_rstn axi_freq}
+    set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr_offset -1 addr_range 4K type AXI4LITE]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE]
 
     global AXI_INTERCONNECT_SIZE
     global AXI_ADDR_WIDTH
@@ -259,13 +290,13 @@ proc AXI_PL_DEV_CONNECT {params} {
 
     
     #add addressing
-    if {$addr_offset == -1} {
+    if {$offset == -1} {
         puts "Automatically setting $device_name address"
         assign_bd_address [get_bd_addr_segs {$device_name/Reg }]
     } else {
-        puts "Manually setting $device_name address to $addr_offset $addr_range"
+        puts "Manually setting $device_name address to $offset $range"
 
-        assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/Reg]
+        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs $device_name/Reg]
 
     }
 
