@@ -16,7 +16,6 @@ proc huddle_to_bd {huddle parent} {
 
             foreach pairkey [huddle keys $tcl_call_huddle] {
                 if { 0 != [string compare "command" $pairkey]} {
-                    #puts "  > $pairkey"
                     dict set pairs $pairkey [subst [huddle gets $tcl_call_huddle $pairkey]]
                 }}
             puts "Executing command from YAML: $command \[dict create $pairs\]"
@@ -33,8 +32,11 @@ proc yaml_to_bd {yaml_file} {
 
 proc yaml_to_control_sets {yaml_file} {
     set dict [dict get [yaml::yaml2dict -file $yaml_file] "AXI_CONTROL_SETS"]
+    puts "Adding AXI Control Sets"
     foreach key [dict keys $dict] {
-        upvar 1 $key x ;# tie the calling value to variable x
-        set x [dict get $dict $key]
-        puts $x
-    }}
+	puts "  $key"
+	global $key
+	upvar 0 $key x ;# tie the calling value to variable x
+	set x [dict get $dict $key]
+    }
+}
