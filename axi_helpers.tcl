@@ -11,6 +11,24 @@ proc clear_global {variable} {
 [clear_global AXI_INTERCONNECT_SIZE]
 array set AXI_INTERCONNECT_SIZE {}
 
+proc BUILD_AXI_DATA_WIDTH {name src_width dst_width axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {slave_local 1}} {
+    #create the width converter
+    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_dwidth_converter && UPGRADE_VERSIONS == "" }] $name
+
+    set_property CONFIG.SI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
+    set_property CONFIG.ADDR_WIDTH.VALUE_SRC PROPAGATED  [get_bd_cells $name] 
+    set_property CONFIG.MI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
+
+    #set the converter
+    set_property CONFIG.SI_DATA_WIDTH ${src_width}       [get_bd_cells $name] 
+    set_property CONFIG.MI_DATA_WIDTH ${dst_width}       [get_bd_cells $name] 
+
+    #connect to AXI, clk, and reset between slave and master
+    [AXI_DEV_CONNECT $name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range -1]
+    puts "Finished Xilinx AXI data width converter: $name"
+
+}
+
 proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_master_rstns} {
     global AXI_INTERCONNECT_SIZE
     
