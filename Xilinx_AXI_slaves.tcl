@@ -1,5 +1,9 @@
 source ${apollo_root_path}/bd/axi_helpers.tcl
 
+proc get_part {} {
+    return [get_parts -of_objects [get_projects]]
+    }
+
 proc set_default {dict key default} {
     if {[dict exists $dict $key]} {
         return [dict get $dict $key ]
@@ -200,11 +204,12 @@ proc C2C_AURORA {params} {
     } else {
 	puts "Creating ${device_name} using ${primary_serdes} as the primary serdes\n"
     }
-    
+
+    #set names
     set C2C ${device_name}
     set C2C_PHY ${C2C}_PHY    
+
     #create chip-2-chip aurora     
-#    startgroup 
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == aurora_64b66b }] ${C2C_PHY}        
     set_property CONFIG.C_INIT_CLK.VALUE_SRC PROPAGATED   [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_AURORA_LANES       {1}          [get_bd_cells ${C2C_PHY}]
@@ -214,9 +219,9 @@ proc C2C_AURORA {params} {
     set_property CONFIG.C_REFCLK_FREQUENCY   ${refclk_freq}    [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
     if {$primary_serdes == 1} {
-	set_property CONFIG.SupportLevel         {1}          [get_bd_cells ${C2C_PHY}]
+	set_property CONFIG.SupportLevel     {1}          [get_bd_cells ${C2C_PHY}]
     } else {
-	set_property CONFIG.SupportLevel         {0}          [get_bd_cells ${C2C_PHY}]
+	set_property CONFIG.SupportLevel     {0}          [get_bd_cells ${C2C_PHY}]
     }
     set_property CONFIG.SINGLEEND_INITCLK    {true}       [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_USE_CHIPSCOPE      {true}       [get_bd_cells ${C2C_PHY}]
@@ -225,71 +230,79 @@ proc C2C_AURORA {params} {
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
     
-#    set_property -dict [list CONFIG.C_GT_CLOCK_1 {GTXQ3} CONFIG.C_GT_LOC_9 {X} CONFIG.C_GT_LOC_15 {1}]          [get_bd_cells ${C2C_PHY}]
-
-    
+   
     #connect to interconnect (init clock)
-    set C2C_ARST ${C2C_PHY}_AXI_LITE_RESET_INVERTER
-    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
-    set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
-    connect_bd_net  [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-    #    connect_bd_net  [get_bd_pins ${C2C_ARST}/Res]        [get_bd_pins $AXI_BUS_RST(${C2C_PHY})]
-#    [AXI_DEV_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
-    set sid [AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
-    AXI_SET_ADDR ${C2C_PHY}    
+    set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
+    create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
+    set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
+    connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
+    set sid          [AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
+    AXI_SET_ADDR     ${C2C_PHY}    
 
 
     
     #expose the Aurora core signals to top    
     if {$primary_serdes == 1} {
 	#these are only if the serdes is the primary one
-	make_bd_intf_pins_external  -name ${C2C_PHY}_refclk         [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
-	make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out [get_bd_pins ${C2C_PHY}/gt_refclk1_out]
+	make_bd_intf_pins_external  -name ${C2C_PHY}_refclk               [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
+	make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out       [get_bd_pins ${C2C_PHY}/gt_refclk1_out]
+    }								          
+    make_bd_intf_pins_external      -name ${C2C_PHY}_Rx                   [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_RX]       
+    make_bd_intf_pins_external      -name ${C2C_PHY}_Tx                   [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_TX]
+    make_bd_pins_external           -name ${C2C_PHY}_power_down           [get_bd_pins ${C2C_PHY}/power_down]       
+    make_bd_pins_external           -name ${C2C_PHY}_gt_pll_lock          [get_bd_pins ${C2C_PHY}/gt_pll_lock]
+    make_bd_pins_external           -name ${C2C_PHY}_hard_err             [get_bd_pins ${C2C_PHY}/hard_err]
+    make_bd_pins_external           -name ${C2C_PHY}_soft_err             [get_bd_pins ${C2C_PHY}/soft_err]
+    make_bd_pins_external           -name ${C2C_PHY}_lane_up              [get_bd_pins ${C2C_PHY}/lane_up]
+    make_bd_pins_external           -name ${C2C_PHY}_mmcm_not_locked_out  [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out]       
+    make_bd_pins_external           -name ${C2C_PHY}_link_reset_out       [get_bd_pins ${C2C_PHY}/link_reset_out]
+    if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {   
+	#7-series debug name
+	make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG                [get_bd_intf_pins ${C2C_PHY}/TRANSCEIVER_DEBUG0]
+    } else {
+	#USP debug name
+	make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG                [get_bd_intf_pins ${C2C_PHY}/TRANSCEIVER_DEBUG]
     }
-    make_bd_intf_pins_external  -name ${C2C_PHY}_Rx             [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_RX]       
-    make_bd_intf_pins_external  -name ${C2C_PHY}_Tx             [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_TX]
-    make_bd_pins_external       -name ${C2C_PHY}_power_down     [get_bd_pins ${C2C_PHY}/power_down]       
-    make_bd_pins_external       -name ${C2C_PHY}_gt_pll_lock    [get_bd_pins ${C2C_PHY}/gt_pll_lock]
-    make_bd_pins_external       -name ${C2C_PHY}_hard_err       [get_bd_pins ${C2C_PHY}/hard_err]
-    make_bd_pins_external       -name ${C2C_PHY}_soft_err       [get_bd_pins ${C2C_PHY}/soft_err]
-    make_bd_pins_external       -name ${C2C_PHY}_lane_up        [get_bd_pins ${C2C_PHY}/lane_up]
-    make_bd_pins_external       -name ${C2C_PHY}_mmcm_not_locked_out  [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out]       
-    make_bd_pins_external       -name ${C2C_PHY}_link_reset_out [get_bd_pins ${C2C_PHY}/link_reset_out]
-
-    make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG          [get_bd_intf_pins ${C2C_PHY}/TRANSCEIVER_DEBUG0]
 
     
     
     #connect C2C core with the C2C-mode Auroroa core   
     connect_bd_intf_net [get_bd_intf_pins ${C2C}/AXIS_TX] [get_bd_intf_pins ${C2C_PHY}/USER_DATA_S_AXIS_TX]        
-    connect_bd_intf_net [get_bd_intf_pins ${C2C_PHY}/USER_DATA_M_AXIS_RX] [get_bd_intf_pins ${C2C}/AXIS_RX]        
-    connect_bd_net [get_bd_pins ${C2C_PHY}/channel_up]          [get_bd_pins ${C2C}/axi_c2c_aurora_channel_up]     
-    connect_bd_net [get_bd_pins ${C2C}/aurora_pma_init_out]     [get_bd_pins ${C2C_PHY}/pma_init]        
-    connect_bd_net [get_bd_pins ${C2C}/aurora_reset_pb]         [get_bd_pins ${C2C_PHY}/reset_pb]        
-    if {$primary_serdes == 1} {
-	connect_bd_net [get_bd_pins ${C2C_PHY}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
-	connect_bd_net [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
+    connect_bd_intf_net [get_bd_intf_pins ${C2C_PHY}/USER_DATA_M_AXIS_RX]   [get_bd_intf_pins ${C2C}/AXIS_RX]        
+    connect_bd_net      [get_bd_pins      ${C2C_PHY}/channel_up]            [get_bd_pins ${C2C}/axi_c2c_aurora_channel_up]     
+    connect_bd_net      [get_bd_pins      ${C2C}/aurora_pma_init_out]       [get_bd_pins ${C2C_PHY}/pma_init]        
+    connect_bd_net      [get_bd_pins      ${C2C}/aurora_reset_pb]           [get_bd_pins ${C2C_PHY}/reset_pb]        
+    if {$primary_serdes == 1} {						    
+	connect_bd_net  [get_bd_pins      ${C2C_PHY}/user_clk_out]          [get_bd_pins ${C2C}/axi_c2c_phy_clk]
+	connect_bd_net  [get_bd_pins      ${C2C_PHY}/mmcm_not_locked_out]   [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
     } else {
-	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C_PHY}/user_clk]
-	connect_bd_net [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
-	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
-#	connect_bd_net [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C_PHY}/mmcm_not_locked]        
+	connect_bd_net  [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C_PHY}/user_clk]
+	connect_bd_net  [get_bd_pins ${primary_serdes}/user_clk_out]        [get_bd_pins ${C2C}/axi_c2c_phy_clk]
+	connect_bd_net  [get_bd_pins ${primary_serdes}/mmcm_not_locked_out] [get_bd_pins ${C2C}/aurora_mmcm_not_locked]        
     }
     
-    #connect external 200Mhz clock to init clocks      
+    #connect external clock to init clocks      
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/init_clk]       
-    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
-    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]
+    connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]    
+    #drp port fixed to init clk in USP
+    if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
+	#connect drp clock explicitly in 7-series
+	connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
+    }
+
     if {$primary_serdes == 1} {
 	#provide a clk output of the C2C_PHY user clock 
 	create_bd_port -dir O -type clk ${C2C_PHY}_CLK
         connect_bd_net [get_bd_ports ${C2C_PHY}_CLK] [get_bd_pins ${C2C_PHY}/user_clk_out]	
     } else {
 	#connect up clocking resource to primary C2C_PHY
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_refclk1_out]            [get_bd_pins ${C2C_PHY}/refclk1_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
-	connect_bd_net [get_bd_pins ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
+	connect_bd_net [get_bd_pins     ${primary_serdes}/gt_refclk1_out]            [get_bd_pins ${C2C_PHY}/refclk1_in]
+	if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
+	    #only in 7-series
+  	    connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
+	    connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
+	}
+	connect_bd_net [get_bd_pins     ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
     }
 
     #    validate_bd_design
@@ -399,7 +412,7 @@ proc AXI_IP_SYS_MGMT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0 enable_i2c_pins 0]
     
     #create system management AXIL lite slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == system_management_wiz }] ${device_name}
@@ -407,8 +420,10 @@ proc AXI_IP_SYS_MGMT {params} {
     #disable default user temp monitoring
     set_property CONFIG.USER_TEMP_ALARM {false}        [get_bd_cells ${device_name}]
     #add i2c interface
-    set_property CONFIG.SERIAL_INTERFACE {Enable_I2C}  [get_bd_cells ${device_name}]
-    set_property CONFIG.I2C_ADDRESS_OVERRIDE {false}   [get_bd_cells ${device_name}]
+    if {$enable_i2c_pins} {
+      set_property CONFIG.SERIAL_INTERFACE {Enable_I2C}  [get_bd_cells ${device_name}]
+      set_property CONFIG.I2C_ADDRESS_OVERRIDE {false}   [get_bd_cells ${device_name}]
+    }
     
     #connect to interconnect
     [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
