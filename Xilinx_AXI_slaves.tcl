@@ -236,7 +236,7 @@ proc C2C_AURORA {params} {
     create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
     set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-    set sid          [AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq]
+    AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq
     AXI_SET_ADDR     ${C2C_PHY}    
 
 
@@ -306,7 +306,7 @@ proc C2C_AURORA {params} {
     }
 
     #    validate_bd_design
-    AXI_GEN_DTSI ${C2C_PHY} $axi_interconnect $sid
+    AXI_GEN_DTSI ${C2C_PHY}
     
 #    endgroup      
 }

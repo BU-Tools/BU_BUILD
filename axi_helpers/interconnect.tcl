@@ -2,28 +2,45 @@ source -quiet ${apollo_root_path}/bd/dtsi_helpers.tcl
 
 #add a new master interface to $interconnect to use for a new slave
 proc ADD_MASTER_TO_INTERCONNECT {interconnect} {
+
+
     global AXI_INTERCONNECT_SIZE
 
-    set INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($interconnect)
-
-    #update the number of slaves (master interfaces)
-    set AXI_INTERCONNECT_SIZE($interconnect) [expr {${INTERCONNECT_SID} + 1}]
-    set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($interconnect)  [get_bd_cells $interconnect]
-
-    uplevel 1 {set AXIM_NAME } $interconnect
-    uplevel 1 {append AXIM_NAME "/M" }
-    uplevel 1 {append AXIM_NAME [format "%02d" } $INTERCONNECT_SID {]}
-    uplevel 1 {
-    set AXIM_PORT_NAME $AXIM_NAME
-    append AXIM_PORT_NAME "_AXI"
-    set AXIM_CLK_NAME $AXIM_NAME
-    append AXIM_CLK_NAME "_ACLK"
-    set AXIM_RSTN_NAME $AXIM_NAME
-    append AXIM_RSTN_NAME "_ARESETN"
+    if { [string first axi_interconnect [get_property VLNV [get_bd_cells $interconnect] ] ] != -1} {
+	#this is a real axi interconnect, so we need to expand it. 
+	set INTERCONNECT_SID $AXI_INTERCONNECT_SIZE($interconnect)
+	
+	#update the number of slaves (master interfaces)
+	set AXI_INTERCONNECT_SIZE($interconnect) [expr {${INTERCONNECT_SID} + 1}]
+	set_property CONFIG.NUM_MI $AXI_INTERCONNECT_SIZE($interconnect)  [get_bd_cells $interconnect]
+    
+	uplevel 1 {set AXIM_NAME } $interconnect
+	uplevel 1 {append AXIM_NAME "/M" }
+	uplevel 1 {append AXIM_NAME [format "%02d" } $INTERCONNECT_SID {]}
+	uplevel 1 {
+	    set AXIM_PORT_NAME $AXIM_NAME
+	    append AXIM_PORT_NAME "_AXI"
+	    set AXIM_CLK_NAME $AXIM_NAME
+	    append AXIM_CLK_NAME "_ACLK"
+	    set AXIM_RSTN_NAME $AXIM_NAME
+	    append AXIM_RSTN_NAME "_ARESETN"
+	}
+    
+	puts "Created slave ${INTERCONNECT_SID} on interconnect (${interconnect})"
+    } else {
+	#connecting to an existing port, so no internonnect expansion
+	uplevel 1 {set AXIM_NAME } $interconnect
+	uplevel 1 {append AXIM_NAME "/M" }
+	uplevel 1 {
+	    set AXIM_PORT_NAME $AXIM_NAME
+	    append AXIM_PORT_NAME "_AXI"
+	    set AXIM_CLK_NAME $AXIM_NAME
+	    append AXIM_CLK_NAME "_ACLK"
+	    set AXIM_RSTN_NAME $AXIM_NAME
+	    append AXIM_RSTN_NAME "_ARESETN"
+	}
+	puts "Connected to ${interconnect}"
     }
-
-    puts "Created slave ${INTERCONNECT_SID} on interconnect (${interconnect})"
-    return ${INTERCONNECT_SID}
 }
 
 [clear_global AXI_INTERCONNECT_SIZE]
