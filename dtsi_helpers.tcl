@@ -17,9 +17,8 @@ proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
 }
 
 #function to create a DTSI chunk file for a full PL AXI slave.
-proc AXI_DEV_UIO_DTSI_CHUNK {axi_interconnect_name axi_master_name device_name} {
+proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
     global dtsi_output_path
-    puts ${axi_master_name}
 
     set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
     set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]

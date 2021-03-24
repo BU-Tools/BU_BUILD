@@ -31,7 +31,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     startgroup
     
     #Create a new master port for this slave
-    set AXIM_SID [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    ADD_MASTER_TO_INTERCONNECT $axi_interconnect
 
     #Create an external signal interface and connect them to the axi-interconnect
     make_bd_intf_pins_external -name $AXIS_PORT_NAME  [get_bd_intf_pins  $AXIM_PORT_NAME]
@@ -93,7 +93,7 @@ proc AXI_PL_DEV_CONNECT {params} {
 
     validate_bd_design -quiet
     #now that the design is validated, generate the DTSI_CHUNK file
-    [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXIM_SID $device_name]
+    AXI_DEV_UIO_DTSI_CHUNK $device_name
     
     endgroup
 }
@@ -103,8 +103,7 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     startgroup
 
     #Create a new master port for this slave
-    #Create a new master port for this slave
-    set AXIM_SID [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
     
     #connect the requested clock to the AXI interconnect clock port
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
@@ -134,7 +133,6 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
     endgroup
-    return $AXIM_SID
 }
 proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
 
@@ -157,7 +155,7 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
 
     endgroup
 }
-proc AXI_GEN_DTSI {device_name axi_interconnect sid {remote_slave 0}} {
+proc AXI_GEN_DTSI {device_name {remote_slave 0}} {
 
     startgroup
     validate_bd_design -quiet
@@ -168,7 +166,7 @@ proc AXI_GEN_DTSI {device_name axi_interconnect sid {remote_slave 0}} {
         [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     } elseif {$remote_slave == 1} {
         #if this is accessed via axi C2C, then we need to write a full dtsi entry
-        [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $sid ${device_name}]
+        [AXI_DEV_UIO_DTSI_CHUNK ${device_name}]
     }
     #else {
     #do not generate a file
@@ -182,9 +180,9 @@ proc AXI_GEN_DTSI {device_name axi_interconnect sid {remote_slave 0}} {
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
 proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0} {force_mem 0}} {
 
-    set sid [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
+    [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
     AXI_SET_ADDR $device_name $addr_offset $addr_range $force_mem
-    AXI_GEN_DTSI $device_name $axi_interconnect $sid $remote_slave
+    AXI_GEN_DTSI $device_name $remote_slave
 }
 
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
@@ -246,7 +244,7 @@ proc AXI_LITE_DEV_CONNECT {params} {
         [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     } elseif {$remote_slave == 1} {
         #if this is accessed via axi C2C, then we need to write a full dtsi entry
-        [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXI_INTERCONNECT_SID ${device_name}]
+        [AXI_DEV_UIO_DTSI_CHUNK ${device_name}]
     }
     #else {
     #do not generate a file
@@ -260,7 +258,7 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
     startgroup
 
     #Create a new master port for this slave
-    set AXIM_SID [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
 
     #connect the requested clock to the AXI interconnect clock port 
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
@@ -280,7 +278,7 @@ proc AXI_CTL_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq
         [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     } elseif {$remote_slave == 1} {
         #if this is accessed via axi C2C, then we need to write a full dtsi entry
-        [AXI_DEV_UIO_DTSI_CHUNK $axi_interconnect $AXI_INTERCONNECT_SID ${device_name}]
+        [AXI_DEV_UIO_DTSI_CHUNK ${device_name}]
     }
     #else {
     #do not generate a file
