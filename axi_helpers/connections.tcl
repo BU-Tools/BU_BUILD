@@ -297,3 +297,29 @@ proc BUILD_JTAG_AXI_MASTER {params} {
     connect_bd_net [get_bd_ports ${axi_clk}] [get_bd_pins ${device_name}/aclk]
     connect_bd_net [get_bd_pins  ${device_name}/aresetn] [get_bd_pins ${axi_rstn}]
 }
+
+
+proc BUILD_AXI_DATA_WIDTH {params} {
+    # required values
+    set_required_values $params {device_name axi_control}
+
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+
+
+    #create the width converter
+    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_dwidth_converter && UPGRADE_VERSIONS == "" }] $name
+
+    set_property CONFIG.SI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
+    set_property CONFIG.ADDR_WIDTH.VALUE_SRC PROPAGATED  [get_bd_cells $name] 
+    set_property CONFIG.MI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
+
+    #set the converter
+    set_property CONFIG.SI_DATA_WIDTH ${src_width}       [get_bd_cells $name] 
+    set_property CONFIG.MI_DATA_WIDTH ${dst_width}       [get_bd_cells $name] 
+
+    #connect to AXI, clk, and reset between slave and master
+    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
+    puts "Finished Xilinx AXI data width converter: $name"
+
+}
