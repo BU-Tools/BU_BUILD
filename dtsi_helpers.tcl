@@ -26,16 +26,20 @@ proc AXI_DEV_UIO_DTSI_CHUNK {axi_interconnect_name axi_master_name device_name} 
 
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
-
     
-    #build dtsi file for this for later    
-    set dtsi_file [open "${dtsi_output_path}/$device_name.dtsi_chunk" w+]
-    puts $dtsi_file "  amba_pl {"
-    puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
-    puts $dtsi_file "      compatible = \"generic-uio\";"
-    puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
-    puts $dtsi_file "      label = \"$device_name\";"
-    puts $dtsi_file "    };"
-    puts $dtsi_file "  };"
-    close $dtsi_file
+    if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || [info exists REMOTE_C2C] } {    
+	#build dtsi file for this for later    
+	set dtsi_file [open "${dtsi_output_path}/$device_name.dtsi_chunk" w+]
+	puts $dtsi_file "  amba_pl {"
+	puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
+	puts $dtsi_file "      compatible = \"generic-uio\";"
+	puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
+	puts $dtsi_file "      label = \"$device_name\";"
+	puts $dtsi_file "    };"
+	puts $dtsi_file "  };"
+	close $dtsi_file
+    } else { 
+	#build a dtsi_post_chunk file
+	AXI_DEV_UIO_DTSI_POST_CHUNK ${device_name}
+    }
 }
