@@ -27,7 +27,6 @@ proc ADD_MASTER_TO_INTERCONNECT {interconnect} {
 	}
     
 	puts "Created slave ${INTERCONNECT_SID} on interconnect (${interconnect})"
-  return $INTERCONNECT_SID
     } else {
 	#connecting to an existing port, so no internonnect expansion
 	uplevel 1 {set AXIM_NAME } $interconnect
@@ -115,26 +114,26 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
     #if {firewall != 0} {
     #}
 
-    # FIXME: this is kind of stupid... figure out a better way to do this
-    # if you have no slaves connected it just keep generating masters
-    set master_id [ADD_MASTER_TO_INTERCONNECT $parent]
+    # add an axi master to the parent interconnect
+    ADD_MASTER_TO_INTERCONNECT $parent
 
+    # set the size of this new child interconnect to zero
     global AXI_INTERCONNECT_SIZE
     set AXI_INTERCONNECT_SIZE($name) 0
 
     #connect this interconnect clock and reset signals (do quiet incase the type of the signal is different)
-    connect_bd_net -q [get_bd_pins  $axi_clk]   [get_bd_pins $parent/M${master_id}_ACLK]
-    connect_bd_net -q [get_bd_ports $axi_clk]   [get_bd_pins $parent/M${master_id}_ACLK]
-    connect_bd_net -q [get_bd_pins  $axi_rstn]  [get_bd_pins $parent/M${master_id}_ARESETN]
-    connect_bd_net -q [get_bd_ports $axi_rstn]  [get_bd_pins $parent/M${master_id}_ARESETN]
+    connect_bd_net -q [get_bd_pins  $axi_clk]   [get_bd_pins $AXIM_CLK_NAME]
+    connect_bd_net -q [get_bd_ports $axi_clk]   [get_bd_pins $AXIM_CLK_NAME]
+    connect_bd_net -q [get_bd_pins  $axi_rstn]  [get_bd_pins $AXIM_RSTN_NAME]
+    connect_bd_net -q [get_bd_ports $axi_rstn]  [get_bd_pins $AXIM_RSTN_NAME]
 
     BUILD_AXI_INTERCONNECT \
         $name \
         $axi_clk \
         $axi_rstn \
-        [list "$parent/M${master_id}_AXI"] \
-        $master_clk \
-        $master_rstn
+        $AXIM_PORT_NAME \
+        $AXIM_CLK_NAME \
+        $AXIM_RSTN_NAME
 }
 
 proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {axi_width 32}} {
