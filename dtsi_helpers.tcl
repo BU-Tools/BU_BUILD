@@ -12,6 +12,7 @@ proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
     puts $dtsi_file "  &${device_name}{"
     puts $dtsi_file "    compatible = \"generic-uio\";"
     puts $dtsi_file "      label = \"$device_name\";"
+    puts $dtsi_file "      linux,uio-name = \"$device_name\";"
     puts $dtsi_file "  };"
     close $dtsi_file
 }
@@ -34,6 +35,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 	puts $dtsi_file "      compatible = \"generic-uio\";"
 	puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
 	puts $dtsi_file "      label = \"$device_name\";"
+	puts $dtsi_file "      linux,uio-name = \"$device_name\";"
 	puts $dtsi_file "    };"
 	puts $dtsi_file "  };"
 	close $dtsi_file
