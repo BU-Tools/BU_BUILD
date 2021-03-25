@@ -27,6 +27,7 @@ proc ADD_MASTER_TO_INTERCONNECT {interconnect} {
 	}
     
 	puts "Created slave ${INTERCONNECT_SID} on interconnect (${interconnect})"
+  return $INTERCONNECT_SID
     } else {
 	#connecting to an existing port, so no internonnect expansion
 	uplevel 1 {set AXIM_NAME } $interconnect
