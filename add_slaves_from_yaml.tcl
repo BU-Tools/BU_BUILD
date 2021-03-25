@@ -27,6 +27,7 @@ proc huddle_to_bd {huddle parent} {
 
 proc yaml_to_bd {yaml_file} {
     yaml_to_control_sets $yaml_file
+    puts "Adding slaves"
     huddle_to_bd [huddle get [yaml::yaml2huddle -file $yaml_file] "AXI_SLAVES"] ""
 }
 

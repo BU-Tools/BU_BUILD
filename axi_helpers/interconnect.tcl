@@ -136,11 +136,11 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
         $master_rstn
 }
 
-proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {axi_width 32}} {
+proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {addr_width 32} {data_width 32} {
     
     create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${base_name}
-    set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports ${base_name}]
-    set_property CONFIG.ADDR_WIDTH ${axi_width} [get_bd_intf_ports ${base_name}]
+    set_property CONFIG.DATA_WIDTH ${data_width} [get_bd_intf_ports ${base_name}]
+    set_property CONFIG.ADDR_WIDTH ${addr_width} [get_bd_intf_ports ${base_name}]
     
     #create clk and reset (-q to skip error if it already exists)
     create_bd_port -q -dir I -type clk $axi_clk

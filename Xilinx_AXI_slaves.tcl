@@ -426,7 +426,8 @@ proc AXI_IP_SYS_MGMT {params} {
     }
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+#    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
 
     
     #expose alarms

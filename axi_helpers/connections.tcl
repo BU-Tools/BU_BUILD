@@ -19,14 +19,13 @@ proc AXI_PL_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32]
 
     #create axi port names
     set AXIS_PORT_NAME $device_name
     append AXI_PORT_NAME "_AXIS"    
 
     global AXI_ADDR_WIDTH
-    global AXI_DATA_WIDTH
     
     startgroup
     
@@ -36,7 +35,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     #Create an external signal interface and connect them to the axi-interconnect
     make_bd_intf_pins_external -name $AXIS_PORT_NAME  [get_bd_intf_pins  $AXIM_PORT_NAME]
 
-    set_property CONFIG.DATA_WIDTH 32 [get_bd_intf_ports $AXIS_PORT_NAME]
+    set_property CONFIG.DATA_WIDTH $data_width [get_bd_intf_ports $AXIS_PORT_NAME]
     #set the AXI address widths
 
     if {[info exists AXI_ADDR_WIDTH]} {
@@ -58,15 +57,15 @@ proc AXI_PL_DEV_CONNECT {params} {
 
     #connect AXI clk/reest ports to AXI interconnect master and setup parameters
     if [llength [get_bd_ports -quiet $axi_clk]] {
-        connect_bd_net [get_bd_ports $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
+        connect_bd_net -quiet [get_bd_ports $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
     } else {
-        connect_bd_net [get_bd_pins $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
+        connect_bd_net -quiet [get_bd_pins $axi_clk]      [get_bd_pins $AXIM_CLK_NAME]
     }
 
     if [llength [get_bd_ports -quiet $axi_rstn]] {
-        connect_bd_net [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
+        connect_bd_net -quiet [get_bd_ports $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
     } else {
-        connect_bd_net [get_bd_pins $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
+        connect_bd_net -quiet [get_bd_pins $axi_rstn]     [get_bd_pins $AXIM_RSTN_NAME]
     }
 
     #set bus properties
@@ -178,10 +177,16 @@ proc AXI_GEN_DTSI {device_name {remote_slave 0}} {
 }
 
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
-proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0} {force_mem 0}} {
+#proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0} {force_mem 0}} {
+proc AXI_DEV_CONNECT {params} {
+    # required values
+    set_required_values $params {device_name axi_control}
 
-    [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
-    AXI_SET_ADDR $device_name $addr_offset $addr_range $force_mem
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 force_mem 0]
+
+    [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    AXI_SET_ADDR $device_name $offset $range $force_mem
     AXI_GEN_DTSI $device_name $remote_slave
 }
 
@@ -299,25 +304,26 @@ proc BUILD_JTAG_AXI_MASTER {params} {
 
 proc BUILD_AXI_DATA_WIDTH {params} {
     # required values
-    set_required_values $params {device_name axi_control}
+    set_required_values $params {device_name axi_control in_width out_width}
 
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
 
 
     #create the width converter
-    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_dwidth_converter && UPGRADE_VERSIONS == "" }] $name
+    create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_dwidth_converter && UPGRADE_VERSIONS == "" }] $device_name
 
-    set_property CONFIG.SI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
-    set_property CONFIG.ADDR_WIDTH.VALUE_SRC PROPAGATED  [get_bd_cells $name] 
-    set_property CONFIG.MI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $name] 
+    set_property CONFIG.SI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $device_name] 
+    set_property CONFIG.ADDR_WIDTH.VALUE_SRC PROPAGATED  [get_bd_cells $device_name] 
+    set_property CONFIG.MI_DATA_WIDTH.VALUE_SRC USER     [get_bd_cells $device_name] 
 
     #set the converter
-    set_property CONFIG.SI_DATA_WIDTH ${src_width}       [get_bd_cells $name] 
-    set_property CONFIG.MI_DATA_WIDTH ${dst_width}       [get_bd_cells $name] 
+    set_property CONFIG.SI_DATA_WIDTH ${in_width}       [get_bd_cells $device_name] 
+    set_property CONFIG.MI_DATA_WIDTH ${out_width}       [get_bd_cells $device_name] 
 
     #connect to AXI, clk, and reset between slave and master
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
-    puts "Finished Xilinx AXI data width converter: $name"
+#    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]
+    [AXI_DEV_CONNECT $params]
+    puts "Finished Xilinx AXI data width converter: $device_name"
 
 }
