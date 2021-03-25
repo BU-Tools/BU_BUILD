@@ -1,6 +1,4 @@
-source -quiet ${apollo_root_path}/bd/dtsi_helpers.tcl
-
-
+source -notrace ${BD_PATH}/dtsi_helpers.tcl
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
 #It will create external connections for the AXI bus, AXI clock, and AXI reset_n

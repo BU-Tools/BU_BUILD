@@ -1,4 +1,4 @@
-source ${apollo_root_path}/bd/axi_helpers.tcl
+source -notrace ${BD_PATH}/axi_helpers.tcl
 
 proc get_part {} {
     return [get_parts -of_objects [get_projects]]
