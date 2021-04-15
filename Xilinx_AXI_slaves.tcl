@@ -136,7 +136,7 @@ proc AXI_IP_LOCAL_XVC {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range -1} remote_slave 0]
 
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name

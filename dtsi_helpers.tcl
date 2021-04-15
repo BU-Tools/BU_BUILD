@@ -27,7 +27,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
     
-    if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || [info exists REMOTE_C2C] } {    
+    if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || [info exists REMOTE_C2C] || [expr [version -short] >= 2020.2 ] } {    
 	#build dtsi file for this for later    
 	set dtsi_file [open "${dtsi_output_path}/$device_name.dtsi_chunk" w+]
 	puts $dtsi_file "  amba_pl {"
