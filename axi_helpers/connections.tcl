@@ -177,6 +177,8 @@ proc AXI_GEN_DTSI {device_name {remote_slave 0}} {
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
 #proc AXI_DEV_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0} {force_mem 0}} {
 proc AXI_DEV_CONNECT {params} {
+    puts "IN AXI_DEV_CONNECT"
+    puts $params
     # required values
     set_required_values $params {device_name axi_control}
 

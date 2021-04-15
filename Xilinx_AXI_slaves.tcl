@@ -78,7 +78,7 @@ proc AXI_IP_AXI_MONITOR {params} {
     }
 
     #connect to AXI, clk, and reset between slave and master
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
     puts "Finished Xilinx AXI Monitor: $device_name"
 }
 
@@ -100,7 +100,7 @@ proc AXI_IP_I2C {params} {
     make_bd_pins_external  -name ${device_name}_scl_t [get_bd_pins $device_name/scl_t]
     make_bd_pins_external  -name ${device_name}_sda_t [get_bd_pins $device_name/sda_t]
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
 
     puts "Added Xilinx I2C AXI Slave: $device_name"
 }
@@ -120,7 +120,7 @@ proc AXI_IP_XVC {params} {
     set_property CONFIG.C_DESIGN_TYPE {0} [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
 
     
     #generate ports for the JTAG signals
@@ -151,7 +151,7 @@ proc AXI_IP_LOCAL_XVC {params} {
 
     
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
 
 
     #test
@@ -179,7 +179,8 @@ proc AXI_IP_UART {params} {
     set_property CONFIG.C_BAUDRATE $baud_rate [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
+#    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
+    [AXI_DEV_CONNECT $params]
 
     
     #generate ports for the JTAG signals
@@ -324,13 +325,19 @@ proc AXI_C2C_MASTER {params} {
     set AXI_FW ${device_name}_AXI_FW
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXI_FW}
     #force mapping to the mem interface on this one. 
-    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range]
+    set FW_params $params
+    dict set FW_params device_name  $AXI_FW
+#    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range]
+    [AXI_DEV_CONNECT $FW_params]
     [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
     #create AXI(4LITE) firewall IPs to handle a bad C2C link
     set AXILITE_FW ${device_name}_AXILITE_FW
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXILITE_FW}
-    [AXI_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $lite_offset $lite_range]
+    set FWLITE_params $params
+    dict set FWLITE_params device_name $AXILITE_FW
+#    [AXI_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $lite_offset $lite_range]
+    [AXI_DEV_CONNECT $FWLITE_params]
     [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
     #create the actual C2C master
@@ -390,7 +397,7 @@ proc AXI_IP_XADC {params} {
 
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+    [AXI_DEV_CONNECT $params]
 
     
     #expose alarms
@@ -426,7 +433,7 @@ proc AXI_IP_SYS_MGMT {params} {
     }
     
     #connect to interconnect
-#    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+#    [AXI_DEV_CONNECT $params]
     [AXI_DEV_CONNECT $params]
 
     
@@ -463,7 +470,8 @@ proc AXI_IP_BRAM_CONTROL {params} {
     set cell [get_bd_cells $device_name]
 
     # make connections
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+#    [AXI_DEV_CONNECT $params]
+    [AXI_DEV_CONNECT $params]
 
     # set width
     set_property -dict [list CONFIG.MEM_DEPTH $depth CONFIG.READ_WRITE_MODE "READ_WRITE" CONFIG.SINGLE_PORT_BRAM {1} CONFIG.DATA_WIDTH $width] $cell
@@ -490,7 +498,8 @@ proc AXI_IP_BRAM {params} {
 
     
     #connect to interconnect
-    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
+#    [AXI_DEV_CONNECT $params]
+    [AXI_DEV_CONNECT $params]
 
 
     #connect this to a blockram
