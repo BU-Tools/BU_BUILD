@@ -1,3 +1,14 @@
+proc load_yaml_list {file_list} {
+    #load all control sets
+    foreach file ${file_list} {
+	yaml_to_control_sets ${apollo_root_path}/${file}
+    }
+    #load all slaves
+    foreach file ${file_list} {
+	huddle_to_bd [huddle get [yaml::yaml2huddle -file ${apollo_root_path}/${file}] "AXI_SLAVES"] ""
+    }
+}
+
 proc huddle_to_bd {huddle parent} {
     foreach key [huddle keys $huddle] {
         #puts "$key"
