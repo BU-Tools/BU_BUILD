@@ -6,6 +6,9 @@ set dtsi_output_path "${apollo_root_path}/kernel/hw"
 proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
     global dtsi_output_path
     assign_bd_address [get_bd_addr_segs {${device_name}/S_AXI/Reg }]
+
+    puts "AXI_DEV_UIO_DTSI_POST_CHUNK: ${device_name}"
+
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
     set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_post_chunk" w+]
@@ -21,19 +24,55 @@ proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
 proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
     global dtsi_output_path
 
+    puts "AXI_DEV_UIO_DTSI_CHUNK: ${device_name}"
+
     set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
     set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+
+    puts "  ${device_name}:  ${addr}:${addr_range}"
 
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
     
-    if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || [info exists REMOTE_C2C] || [expr [version -short] >= 2020.2 ] } {    
+
+    if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || 
+	 [info exists REMOTE_C2C] || 
+	 [expr [version -short] >= 2020.2 ] } {    
 	#build dtsi file for this for later    
-	set dtsi_file [open "${dtsi_output_path}/$device_name.dtsi_chunk" w+]
-	puts $dtsi_file "  amba_pl {"
+	set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_chunk" w+]
+	
+	#handle amba_pl between 7 and USP
+	set amba_path "  amba_pl"
+	if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+	    set amba_path "${amba_path}@0"
+	}
+	puts $dtsi_file "${amba_path} {" 
+
+
 	puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
 	puts $dtsi_file "      compatible = \"generic-uio\";"
-	puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
+	if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+	    puts $dtsi_file "      		#address-cells = <2>;"
+	    puts $dtsi_file "                   #size-cells = <2>;"
+
+	    set addr_MSB  [string range ${addr} 8 [string length ${addr}]]
+	    if { [expr [string length $addr_MSB] == 0 ] } {
+		set addr_MSB "0"
+	    }
+	    set addr_LSB  [string range ${addr} 0 7]
+
+	    set range_MSB [string range ${addr_range} 8 [string length ${addr_range} ] ]
+	    if { [expr [string length $range_MSB] == 0 ] } {
+		set range_MSB "0"
+	    }
+	    set range_LSB [string range ${addr_range} 0 7]    
+
+	    puts $dtsi_file "      reg = <0x${addr_MSB} 0x${addr_LSB} 0x${range_MSB} 0x${range_LSB}>;"
+	} else {
+	    puts $dtsi_file "      		#address-cells = <1>;"
+	    puts $dtsi_file "                   #size-cells = <1>;"
+	    puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
+	}
 	puts $dtsi_file "      label = \"$device_name\";"
 	puts $dtsi_file "      linux,uio-name = \"$device_name\";"
 	puts $dtsi_file "    };"

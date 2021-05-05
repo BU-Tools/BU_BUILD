@@ -31,7 +31,15 @@ proc AXI_PL_DEV_CONNECT {params} {
     ADD_MASTER_TO_INTERCONNECT $axi_interconnect
 
     #Create an external signal interface and connect them to the axi-interconnect
-    make_bd_intf_pins_external -name $AXIS_PORT_NAME  [get_bd_intf_pins  $AXIM_PORT_NAME]
+#    create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 ${AXIS_PORT_NAME}
+#    connect_bd_intf_net [get_bd_intf_ports ${AXIS_PORT_NAME}] -boundary_type upper [get_bd_intf_pins ${AXIM_PORT_NAME}]
+#    connect_bd_intf_net [get_bd_intf_ports ${AXIS_PORT_NAME}] [get_bd_intf_pins ${AXIM_PORT_NAME}]
+
+    make_bd_intf_pins_external -name ${AXIS_PORT_NAME} [get_bd_intf_pins  $AXIM_PORT_NAME]
+    
+#    make_bd_intf_pins_external  [get_bd_intf_pins  $AXIM_PORT_NAME]
+    
+
 
     set_property CONFIG.DATA_WIDTH $data_width [get_bd_intf_ports $AXIS_PORT_NAME]
     #set the AXI address widths
@@ -80,17 +88,27 @@ proc AXI_PL_DEV_CONNECT {params} {
     #add addressing
     if {$offset == -1} {
         puts "Automatically setting $device_name address"
-        assign_bd_address [get_bd_addr_segs {$device_name/Reg }]
+#        assign_bd_address [get_bd_addr_segs {$device_name/Reg }]
+        assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
     } else {
         puts "Manually setting $device_name address to $offset $range"
-
-        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs $device_name/Reg]
+	puts /${device_name}/*
+	puts [get_bd_addr_segs /${device_name}/*]
+	puts [get_bd_addr_segs ${device_name}/Reg]
+#	break
+#        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
+        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
 
     }
 
     validate_bd_design -quiet
     #now that the design is validated, generate the DTSI_CHUNK file
-    AXI_DEV_UIO_DTSI_CHUNK $device_name
+    if {$offset == -1} {
+#	AXI_DEV_UIO_DTSI_POST_CHUNK $device_name
+	AXI_DEV_UIO_DTSI_CHUNK $device_name
+    } else {
+	AXI_DEV_UIO_DTSI_CHUNK $device_name
+    }
     
     endgroup
 }
