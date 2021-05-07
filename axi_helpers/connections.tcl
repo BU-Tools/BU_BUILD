@@ -156,14 +156,14 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
     #add addressing
     if {$addr_offset == -1} {
         puts "Automatically setting $device_name address"
-        assign_bd_address [get_bd_addr_segs {$device_name/*/Reg }]
+        assign_bd_address [get_bd_addr_segs {$device_name/*Reg }]
     } else {
         if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
             puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
-            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Reg*]
+            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]
         } elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
             puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
-            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*/Mem*]
+            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]
         }
 
     }

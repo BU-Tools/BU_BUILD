@@ -171,6 +171,7 @@ proc AXI_IP_UART {params} {
     set_required_values $params {baud_rate irq_port}
 
     # optional values
+    # remote_slave -1 means don't generate a dtsi_ file
     set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
 
     #Create a xilinx UART
@@ -180,6 +181,8 @@ proc AXI_IP_UART {params} {
 
     #connect to AXI, clk, and reset between slave and mastre
 #    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
+    #make sure the UART isn't given a dtsi file
+    dict set params remote_slave -1
     [AXI_DEV_CONNECT $params]
 
     
@@ -319,15 +322,16 @@ proc AXI_C2C_MASTER {params} {
     set_required_values $params {primary_serdes init_clk refclk_freq}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {lite_offset -1 lite_range 64K}]
-
+    set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K}]
+    puts $params
     #create AXI(4) firewall IPs to handle a bad C2C link
     set AXI_FW ${device_name}_AXI_FW
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXI_FW}
     #force mapping to the mem interface on this one. 
     set FW_params $params
     dict set FW_params device_name  $AXI_FW
-#    [AXI_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range]
+    dict set FW_params addr [dict get $params addr]
+    puts $FW_params
     [AXI_DEV_CONNECT $FW_params]
     [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
@@ -336,7 +340,8 @@ proc AXI_C2C_MASTER {params} {
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXILITE_FW}
     set FWLITE_params $params
     dict set FWLITE_params device_name $AXILITE_FW
-#    [AXI_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq $lite_offset $lite_range]
+    dict set FWLITE_params addr [dict get $params addr_lite]
+    puts $FWLITE_params
     [AXI_DEV_CONNECT $FWLITE_params]
     [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
@@ -355,12 +360,12 @@ proc AXI_C2C_MASTER {params} {
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
     connect_bd_net      [get_bd_pins ${device_name}/s_aclk]     [get_bd_pins $axi_clk]
     connect_bd_net      [get_bd_pins ${device_name}/s_aresetn]  [get_bd_pins $axi_rstn]
-    AXI_SET_ADDR ${device_name} $offset $range 1
+    AXI_SET_ADDR ${device_name}/s_axi [dict get [dict get $FW_params addr      ] offset] [dict get [dict get $FW_params addr] range] 1
     
     #connect AXI LITE interface to the firewall
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi_lite] [get_bd_intf_pins ${AXILITE_FW}/M_AXI]
     connect_bd_net      [get_bd_pins ${device_name}/s_axi_lite_aclk] [get_bd_pins $axi_clk]
-    AXI_SET_ADDR ${device_name} $lite_offset $lite_range
+    AXI_SET_ADDR ${device_name}/s_axi_lite [dict get [dict get $FWLITE_params addr_lite ] offset] [dict get [dict get $FWLITE_params addr_lite] range] 0
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
     #expose debugging signals
