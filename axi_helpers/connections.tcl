@@ -1,5 +1,6 @@
 source -notrace ${BD_PATH}/dtsi_helpers.tcl
 
+
 #This function automates the adding of a AXI slave that lives outside of the bd.
 #It will create external connections for the AXI bus, AXI clock, and AXI reset_n
 #for the external slave and connect them up to the axi interconnect in the bd.
@@ -88,15 +89,12 @@ proc AXI_PL_DEV_CONNECT {params} {
     #add addressing
     if {$offset == -1} {
         puts "Automatically setting $device_name address"
-#        assign_bd_address [get_bd_addr_segs {$device_name/Reg }]
         assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
     } else {
         puts "Manually setting $device_name address to $offset $range"
 	puts /${device_name}/*
 	puts [get_bd_addr_segs /${device_name}/*]
 	puts [get_bd_addr_segs ${device_name}/Reg]
-#	break
-#        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
         assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
 
     }
@@ -151,24 +149,26 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
 }
 proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
 
+
     startgroup
     
     #add addressing
     if {$addr_offset == -1} {
         puts "Automatically setting $device_name address"
-        assign_bd_address [get_bd_addr_segs {$device_name/*Reg }]
+        lappend axi_memory_mappings [assign_bd_address [get_bd_addr_segs {$device_name/*Reg }]]
     } else {
         if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
             puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
-            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]
+            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]]
         } elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
             puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
-            assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]
+            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]]
         }
 
     }
 
     endgroup
+
 }
 proc AXI_GEN_DTSI {device_name {remote_slave 0}} {
 
