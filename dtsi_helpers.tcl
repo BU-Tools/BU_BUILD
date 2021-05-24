@@ -102,6 +102,65 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
     }
 }
 
+#function to create a DTSI chunk file for a full PL AXI slave.
+proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
+    global dtsi_output_path
+
+    BUILD_AXI_ADDR_TABLE ${device_name}
+
+    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+
+    #make sure the output folder exists
+    file mkdir ${dtsi_output_path}
+
+    #build dtsi file for this for later    
+    set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi" w+]
+    
+    set amba_path "amba_pl"
+    
+    puts ${dtsi_file} "/dts-v1/;"
+    puts ${dtsi_file} "/plugin/;"
+    puts ${dtsi_file} " "
+    puts ${dtsi_file} "/ {"
+    puts ${dtsi_file} "	fragment@0 {"
+    puts ${dtsi_file} "	    target = <&${amba_path}>;"
+    puts ${dtsi_file} "	    __overlay__ {"
+    puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
+    puts ${dtsi_file} "        compatible = \"generic-uio\";"
+    if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+	puts ${dtsi_file} "        #address-cells = <2>;"
+	puts ${dtsi_file} "        #size-cells = <2>;"
+	
+	set addr_MSB  [string range ${addr} 8 [string length ${addr}]]
+	if { [expr [string length $addr_MSB] == 0 ] } {
+	    set addr_MSB "0"
+	}
+	set addr_LSB  [string range ${addr} 0 7]
+	
+	set range_MSB [string range ${addr_range} 8 [string length ${addr_range} ] ]
+	if { [expr [string length $range_MSB] == 0 ] } {
+	    set range_MSB "0"
+	}
+	set range_LSB [string range ${addr_range} 0 7]    
+	
+	puts ${dtsi_file} "        reg = <0x${addr_MSB} 0x${addr_LSB} 0x${range_MSB} 0x${range_LSB}>;"
+    } else {
+	puts ${dtsi_file} "      	 #address-cells = <1>;"
+	puts ${dtsi_file} "        #size-cells = <1>;"
+	puts ${dtsi_file} "        reg = <0x${addr} 0x${addr_range}>;"
+    }
+    puts ${dtsi_file} "        label = \"$device_name\";"
+    puts ${dtsi_file} "        linux,uio-name = \"$device_name\";"
+    puts ${dtsi_file} "      };"
+    puts ${dtsi_file} "    };"
+    puts ${dtsi_file} "  };"
+    puts ${dtsi_file} "};"
+
+
+    close ${dtsi_file}
+}
+
 proc GENERATE_AXI_ADDR_MAP_C {outFileName} {
     global axi_memory_mappings_addr
     global axi_memory_mappings_range

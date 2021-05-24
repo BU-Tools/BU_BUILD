@@ -18,7 +18,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32 remote_slave 0]
 
     #create axi port names
     set AXIS_PORT_NAME $device_name
@@ -102,10 +102,15 @@ proc AXI_PL_DEV_CONNECT {params} {
     validate_bd_design -quiet
     #now that the design is validated, generate the DTSI_CHUNK file
     if {$offset == -1} {
-#	AXI_DEV_UIO_DTSI_POST_CHUNK $device_name
-	AXI_DEV_UIO_DTSI_CHUNK $device_name
+	AXI_DEV_UIO_DTSI_POST_CHUNK $device_name
+#	AXI_DEV_UIO_DTSI_CHUNK $device_name
     } else {
 	AXI_DEV_UIO_DTSI_CHUNK $device_name
+    }
+
+    #generate dtsi file for DTBO generation if the is a remote slave
+    if {$remote_slave == 1} {
+        [AXI_DEV_UIO_DTSI_OVERLAY ${device_name}]
     }
     
     endgroup
@@ -180,8 +185,13 @@ proc AXI_GEN_DTSI {device_name {remote_slave 0}} {
         #if this is a local Xilinx IP core, most info is done by Vivado
         [AXI_DEV_UIO_DTSI_POST_CHUNK $device_name]
     } elseif {$remote_slave == 1} {
-        #if this is accessed via axi C2C, then we need to write a full dtsi entry
-        [AXI_DEV_UIO_DTSI_CHUNK ${device_name}]
+        global REMOTE_C2C
+	set REMOTE_C2C 1
+	#if this is accessed via axi C2C, then we need to write a full dtsi entry
+        #this is now a legacy file, 
+	[AXI_DEV_UIO_DTSI_CHUNK ${device_name}]
+	#Now we make dtsi overlay files to be loaded at boot-time
+        [AXI_DEV_UIO_DTSI_OVERLAY ${device_name}]
     }
     #else {
     #do not generate a file
