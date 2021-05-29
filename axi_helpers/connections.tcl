@@ -102,8 +102,8 @@ proc AXI_PL_DEV_CONNECT {params} {
     validate_bd_design -quiet
     #now that the design is validated, generate the DTSI_CHUNK file
     if {$offset == -1} {
-	AXI_DEV_UIO_DTSI_POST_CHUNK $device_name
-#	AXI_DEV_UIO_DTSI_CHUNK $device_name
+#	AXI_DEV_UIO_DTSI_POST_CHUNK $device_name
+	AXI_DEV_UIO_DTSI_CHUNK $device_name
     } else {
 	AXI_DEV_UIO_DTSI_CHUNK $device_name
     }
