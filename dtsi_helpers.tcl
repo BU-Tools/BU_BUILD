@@ -69,7 +69,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 
 	puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
 	puts $dtsi_file "      compatible = \"generic-uio\";"
-	if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+	if { [expr [string length ${addr}] > 8 ] || [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ]} {
 	    puts $dtsi_file "      		#address-cells = <2>;"
 	    puts $dtsi_file "                   #size-cells = <2>;"
 
@@ -128,7 +128,8 @@ proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
     puts ${dtsi_file} "	    __overlay__ {"
     puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
     puts ${dtsi_file} "        compatible = \"generic-uio\";"
-    if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+    if { [expr [string length ${addr}] > 8 ] || [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ]} {
+
 	puts ${dtsi_file} "        #address-cells = <2>;"
 	puts ${dtsi_file} "        #size-cells = <2>;"
 	
