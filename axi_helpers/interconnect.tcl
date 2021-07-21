@@ -147,6 +147,7 @@ proc AXI_PL_MASTER_PORT {base_name axi_clk axi_rstn axi_freq {type AXI4LITE} {ad
     create_bd_port -q -dir I -type rst $axi_rstn
 
     #setup clk/reset parameters
+    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_intf_ports $base_name]
     set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_ports $axi_clk]
     set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
 
