@@ -12,6 +12,122 @@ proc set_default {dict key default} {
     }
 }
 
+proc AXI_IP_AXI_ILA {params} {
+
+    set_required_values $params {device_name axi_control}
+    set_required_values $params {core_clk}
+
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == ila}] ${device_name}
+
+    set_property -dict [list 
+			CONFIG.C_EN_STRG_QUAL {1}
+			CONFIG.C_ADV_TRIGGER {true}
+			CONFIG.C_PROBE43_MU_CNT {2}
+			CONFIG.C_PROBE42_MU_CNT {2}
+			CONFIG.C_PROBE41_MU_CNT {2}
+			CONFIG.C_PROBE40_MU_CNT {2}
+			CONFIG.C_PROBE39_MU_CNT {2}
+			CONFIG.C_PROBE38_MU_CNT {2}
+			CONFIG.C_PROBE37_MU_CNT {2}
+			CONFIG.C_PROBE36_MU_CNT {2}
+			CONFIG.C_PROBE35_MU_CNT {2}
+			CONFIG.C_PROBE34_MU_CNT {2}
+			CONFIG.C_PROBE33_MU_CNT {2}
+			CONFIG.C_PROBE32_MU_CNT {2}
+			CONFIG.C_PROBE31_MU_CNT {2}
+			CONFIG.C_PROBE30_MU_CNT {2}
+			CONFIG.C_PROBE29_MU_CNT {2}
+			CONFIG.C_PROBE28_MU_CNT {2}
+			CONFIG.C_PROBE27_MU_CNT {2}
+			CONFIG.C_PROBE26_MU_CNT {2}
+			CONFIG.C_PROBE25_MU_CNT {2}
+			CONFIG.C_PROBE24_MU_CNT {2}
+			CONFIG.C_PROBE23_MU_CNT {2}
+			CONFIG.C_PROBE22_MU_CNT {2}
+			CONFIG.C_PROBE21_MU_CNT {2}
+			CONFIG.C_PROBE20_MU_CNT {2}
+			CONFIG.C_PROBE19_MU_CNT {2}
+			CONFIG.C_PROBE18_MU_CNT {2}
+			CONFIG.C_PROBE17_MU_CNT {2}
+			CONFIG.C_PROBE16_MU_CNT {2}
+			CONFIG.C_PROBE15_MU_CNT {2}
+			CONFIG.C_PROBE14_MU_CNT {2}
+			CONFIG.C_PROBE13_MU_CNT {2}
+			CONFIG.C_PROBE12_MU_CNT {2}
+			CONFIG.C_PROBE11_MU_CNT {2}
+			CONFIG.C_PROBE10_MU_CNT {2}
+			CONFIG.C_PROBE9_MU_CNT {2}
+			CONFIG.C_PROBE8_MU_CNT {2}
+			CONFIG.C_PROBE7_MU_CNT {2}
+			CONFIG.C_PROBE6_MU_CNT {2}
+			CONFIG.C_PROBE5_MU_CNT {2}
+			CONFIG.C_PROBE4_MU_CNT {2}
+			CONFIG.C_PROBE3_MU_CNT {2}
+			CONFIG.C_PROBE2_MU_CNT {2}
+			CONFIG.C_PROBE1_MU_CNT {2}
+			CONFIG.C_PROBE0_MU_CNT {2}
+			CONFIG.C_TRIGIN_EN {true}
+			CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_bd_cells ${device_name}]
+
+    make_bd_pins_external  -name ${device_name}_TRIG_IN      [get_bd_intf_pins $device_name/trig_in]
+    make_bd_pins_external  -name ${device_name}_TRIG_IN_ACK  [get_bd_intf_pins $device_name/trig_in_ack]
+    make_bd_pins_external  -name ${device_name}_core_clk     [get_bd_intf_pins $device_name/clk]
+    
+    [AXI_DEV_CONNECT $params]
+    
+    
+}
+
+proc AXI_IP_DRP_INTF {params} {
+    # required values
+    set_required_values $params {device_name axi_control }
+    set_required_values $params {drp_name init_clk drp_rstn}
+    
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+
+    #turn on the DRP inteface on the transceiver
+    set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${drp_name}]    
+    #connect this to the interconnect
+    AXI_CONNECT  ${drp_name} ${axi_interconnect} ${init_clk} ${drp_rstn} ${axi_freq}
+    AXI_SET_ADDR ${drp_name} ${offset} ${range} 
+    AXI_GEN_DTSI ${drp_name} ${remote_slave}
+
+}
+
+proc AXI_IP_AXI_FW {params} {
+
+    # required values
+    set_required_values $params {device_name axi_control}
+    set_required_values $params {axi_fw_bus}
+
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range -1} remote_slave 0]
+
+
+    # $axi_fw_bus is the master of the line we want to put a firewall in
+    # Get the slave that the master is currently connected to. 
+    set get_slave_cmd "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_pins ${axi_fw_bus} \]\] -filter {MODE == Slave}"
+    set get_master_cmd "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_pins ${axi_fw_bus} \]\] -filter {MODE == Master}"
+    set slave_interface [eval ${get_slave_cmd}]
+    set master_interface [eval ${get_master_cmd}]
+    
+    #delete the net connection
+    delete_bd_objs [get_bd_intf_nets -of_objects [get_bd_intf_pins ${axi_fw_bus}]]
+    
+    #create the AXI FW IP
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${device_name}
+    
+    #connect the master to the new slave on the AXI FW
+    connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $master_interface]
+    #connect the AXI fw to the slave
+    connect_bd_intf_net ${slave_interface} -boundary_type upper [get_bd_intf_pins $device_name/M_AXI]
+    
+#    [AXI_CTL_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $addr_offset $addr_range $remote_slave]    
+    [AXI_CTL_DEV_CONNECT $params]    
+#    [AXI_DEV_UIO_DTSI_POST_CHUNK ${device_name}]
+}
+
 proc AXI_IP_AXI_MONITOR {params} {
 
 
@@ -229,8 +345,8 @@ proc C2C_AURORA {params} {
     }
     set_property CONFIG.SINGLEEND_INITCLK    {true}       [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_USE_CHIPSCOPE      {true}       [get_bd_cells ${C2C_PHY}]
-    set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${C2C_PHY}]
-    set_property CONFIG.TransceiverControl   {false}      [get_bd_cells ${C2C_PHY}]  
+#    set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${C2C_PHY}]
+#    set_property CONFIG.TransceiverControl   {false}      [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
     
@@ -240,8 +356,8 @@ proc C2C_AURORA {params} {
     create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
     set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
     connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-    AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq
-    AXI_SET_ADDR     ${C2C_PHY}    
+#    AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq
+#    AXI_SET_ADDR     ${C2C_PHY}    
 
 
     
@@ -310,7 +426,7 @@ proc C2C_AURORA {params} {
     }
 
     #    validate_bd_design
-    AXI_GEN_DTSI ${C2C_PHY}
+#    AXI_GEN_DTSI ${C2C_PHY}
     
 #    endgroup      
 }
@@ -323,27 +439,27 @@ proc AXI_C2C_MASTER {params} {
 
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K}]
-    puts $params
-    #create AXI(4) firewall IPs to handle a bad C2C link
-    set AXI_FW ${device_name}_AXI_FW
-    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXI_FW}
-    #force mapping to the mem interface on this one. 
-    set FW_params $params
-    dict set FW_params device_name  $AXI_FW
-    dict set FW_params addr [dict get $params addr]
-    puts $FW_params
-    [AXI_DEV_CONNECT $FW_params]
-    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
 
-    #create AXI(4LITE) firewall IPs to handle a bad C2C link
-    set AXILITE_FW ${device_name}_AXILITE_FW
-    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXILITE_FW}
-    set FWLITE_params $params
-    dict set FWLITE_params device_name $AXILITE_FW
-    dict set FWLITE_params addr [dict get $params addr_lite]
-    puts $FWLITE_params
-    [AXI_DEV_CONNECT $FWLITE_params]
-    [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
+##########    #create AXI(4) firewall IPs to handle a bad C2C link
+##########    set AXI_FW ${device_name}_AXI_FW
+##########    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXI_FW}
+##########    #force mapping to the mem interface on this one. 
+##########    set FW_params $params
+##########    dict set FW_params device_name  $AXI_FW
+##########    dict set FW_params addr [dict get $params addr]
+##########    puts $FW_params
+##########    [AXI_DEV_CONNECT $FW_params]
+##########    [AXI_CTL_DEV_CONNECT $AXI_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]    
+##########
+##########    #create AXI(4LITE) firewall IPs to handle a bad C2C link
+##########    set AXILITE_FW ${device_name}_AXILITE_FW
+##########    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${AXILITE_FW}
+##########    set FWLITE_params $params
+##########    dict set FWLITE_params device_name $AXILITE_FW
+##########    dict set FWLITE_params addr [dict get $params addr_lite]
+##########    puts $FWLITE_params
+##########    [AXI_DEV_CONNECT $FWLITE_params]
+##########    [AXI_CTL_DEV_CONNECT $AXILITE_FW $axi_interconnect $axi_clk $axi_rstn $axi_freq]
 
     #create the actual C2C master
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
@@ -357,15 +473,26 @@ proc AXI_C2C_MASTER {params} {
     set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
 
     #connect AXI interface to the firewall
-    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
-    connect_bd_net      [get_bd_pins ${device_name}/s_aclk]     [get_bd_pins $axi_clk]
-    connect_bd_net      [get_bd_pins ${device_name}/s_aresetn]  [get_bd_pins $axi_rstn]
-    AXI_SET_ADDR ${device_name}/s_axi [dict get [dict get $FW_params addr      ] offset] [dict get [dict get $FW_params addr] range] 1
+    set AXI_params $params
+    dict set AXI_params addr [dict get $params addr]
+    dict set AXI_params remote_slave -1
+    dict set AXI_params force_mem 1
+    [AXI_DEV_CONNECT $AXI_params]
+    set AXILite_params $params
+    dict set AXILite_params addr [dict get $params addr_lite]
+    dict set AXILite_params remote_slave -1
+    [AXI_LITE_DEV_CONNECT $AXILite_params]
+
+##########    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
+##########    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi] [get_bd_intf_pins ${AXI_FW}/M_AXI]
+##########    connect_bd_net      [get_bd_pins ${device_name}/s_aclk]     [get_bd_pins $axi_clk]
+##########    connect_bd_net      [get_bd_pins ${device_name}/s_aresetn]  [get_bd_pins $axi_rstn]
+##########    AXI_SET_ADDR ${device_name}/s_axi [dict get [dict get $FW_params addr      ] offset] [dict get [dict get $FW_params addr] range] 1
     
-    #connect AXI LITE interface to the firewall
-    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi_lite] [get_bd_intf_pins ${AXILITE_FW}/M_AXI]
-    connect_bd_net      [get_bd_pins ${device_name}/s_axi_lite_aclk] [get_bd_pins $axi_clk]
-    AXI_SET_ADDR ${device_name}/s_axi_lite [dict get [dict get $FWLITE_params addr_lite ] offset] [dict get [dict get $FWLITE_params addr_lite] range] 0
+##########    #connect AXI LITE interface to the firewall
+##########    connect_bd_intf_net [get_bd_intf_pins ${device_name}/s_axi_lite] [get_bd_intf_pins ${AXILITE_FW}/M_AXI]
+##########    connect_bd_net      [get_bd_pins ${device_name}/s_axi_lite_aclk] [get_bd_pins $axi_clk]
+##########    AXI_SET_ADDR ${device_name}/s_axi_lite [dict get [dict get $FWLITE_params addr_lite ] offset] [dict get [dict get $FWLITE_params addr_lite] range] 0
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
     #expose debugging signals
