@@ -42,6 +42,9 @@ proc AXI_DEV_UIO_DTSI_POST_CHUNK {device_name} {
 proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
     global dtsi_output_path
 
+    global REMOTE_C2C
+    global REMOTE_C2C_64
+
     puts "AXI_DEV_UIO_DTSI_CHUNK: ${device_name}"
 
     BUILD_AXI_ADDR_TABLE ${device_name}
@@ -51,11 +54,10 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
-    
 
     if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || 
 	 [info exists REMOTE_C2C] || 
-	 [expr [version -short] >= 2020.2 ] } {    
+	 [expr [package vcompare [version -short] 2020.2 ] >=0] } {    
 	#build dtsi file for this for later    
 	set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_chunk" w+]
 	
@@ -65,11 +67,14 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 	    set amba_path "${amba_path}@0"
 	}
 	puts $dtsi_file "${amba_path} {" 
-
+	
 
 	puts $dtsi_file "    axiSlave$device_name: $device_name@${addr} {"
 	puts $dtsi_file "      compatible = \"generic-uio\";"
-	if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+	if { [expr [string length ${addr}] > 8 ] || 
+	     [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
+	     [info exists REMOTE_C2C_64] 
+	 } {
 	    puts $dtsi_file "      		#address-cells = <2>;"
 	    puts $dtsi_file "                   #size-cells = <2>;"
 
@@ -106,6 +111,9 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
     global dtsi_output_path
 
+    global REMOTE_C2C
+    global REMOTE_C2C_64
+
     BUILD_AXI_ADDR_TABLE ${device_name}
 
     set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
@@ -128,7 +136,11 @@ proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
     puts ${dtsi_file} "	    __overlay__ {"
     puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
     puts ${dtsi_file} "        compatible = \"generic-uio\";"
-    if { [expr [string length ${addr}] > 8 ] || [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] == -1 ] } {
+    if { [expr [string length ${addr}] > 8 ] || 
+	 [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
+	 [info exists REMOTE_C2C_64] 
+     } {
+
 	puts ${dtsi_file} "        #address-cells = <2>;"
 	puts ${dtsi_file} "        #size-cells = <2>;"
 	
