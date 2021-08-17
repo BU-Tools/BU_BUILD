@@ -1,9 +1,9 @@
 proc huddle_to_bd {huddle parent} {
     foreach key [huddle keys $huddle] {
-        #puts "$key"
-        #puts "Processing node $key"
+        puts "$key"
+        puts "Processing node $key"
         if { 0 == [string compare "TCL_CALL" $key] } {
-            #puts "Found TCL_CALL"
+            puts "Found TCL_CALL"
             set tcl_call_huddle [huddle get $huddle $key]
             set command "[huddle gets $tcl_call_huddle command]"
             set pairs [dict create]
@@ -27,6 +27,7 @@ proc yaml_to_bd {yaml_file} {
     yaml_to_control_sets $yaml_file
     puts "Adding slaves"
     huddle_to_bd [huddle get [yaml::yaml2huddle -file $yaml_file] "AXI_SLAVES"] ""
+    huddle_to_bd [huddle get [yaml::yaml2huddle -file $yaml_file] "CORES"] ""
 }
 
 proc yaml_to_control_sets {yaml_file} {
