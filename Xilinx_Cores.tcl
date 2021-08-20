@@ -25,7 +25,11 @@ proc BuildMGTCores {params} {
 
     set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE}]
 
-
+    dict create GT_TYPEs {}
+    dict append GT_TYPEs "UNKNOWN" "\"00\""
+    dict append GT_TYPEs "GTH" "\"01\""
+    dict append GT_TYPEs "GTX" "\"10\""
+    dict append GT_TYPEs "GTY" "\"11\""
 
     #####################################
     #create IP            
@@ -112,6 +116,7 @@ proc BuildMGTCores {params} {
     dict create common_out {}
     dict create channel_in  {}
     dict create channel_out {}
+    dict append channel_out TXRX_TYPE "std_logic_vector(1 downto 0)" 
 
     foreach line $data {
 	if {[regexp { *(output|input) *wire *\[([0-9]*) *: *([0-9]*)\] *([a-zA-Z_]*);} ${line}  full_match direction MSB LSB name] == 1} {
@@ -194,10 +199,10 @@ proc BuildMGTCores {params} {
     puts $wrapper_file "use work.${device_name}_PKG.all;\n"
     puts $wrapper_file "entity ${device_name}_wrapper is\n"
     puts $wrapper_file "  port ("
-    puts $wrapper_file "    common_in   : in ${device_name}_CommonIn;"
-    puts $wrapper_file "    common_out  : in ${device_name}_CommonOut;"
-    puts $wrapper_file "    channel_in  : in ${device_name}_ChannelIn_array_t($tx_count downto 1);"
-    puts $wrapper_file "    channel_out : in ${device_name}_ChannelOut_array_t($tx_count downto 1));"
+    puts $wrapper_file "    common_in   : in  ${device_name}_CommonIn;"
+    puts $wrapper_file "    common_out  : out ${device_name}_CommonOut;"
+    puts $wrapper_file "    channel_in  : in  ${device_name}_ChannelIn_array_t($tx_count downto 1);"
+    puts $wrapper_file "    channel_out : out ${device_name}_ChannelOut_array_t($tx_count downto 1));"
     puts $wrapper_file "end entity ${device_name}_wrapper;\n"
     puts $wrapper_file "architecture behavioral of ${device_name}_wrapper is"
     puts $wrapper_file "begin"
@@ -218,7 +223,7 @@ proc BuildMGTCores {params} {
 	for {set i $tx_count} {$i > 1} {incr i -1} {
 	    puts $wrapper_file "             Channel_In($i).$key  &"
 	}
-	puts -nonewline $wrapper_file "              Channel_In(0).$key)"
+	puts -nonewline $wrapper_file "              Channel_In(1).$key)"
 	set needsComma ","
     }
     foreach {key value} $channel_out {
@@ -226,10 +231,16 @@ proc BuildMGTCores {params} {
 	for {set i $tx_count} {$i > 1} {incr i -1} {
 	    puts $wrapper_file "              Channel_Out($i).$key &"
 	}
-	puts -nonewline $wrapper_file "              Channel_Out(0).$key)"
+	puts -nonewline $wrapper_file "              Channel_Out(1).$key)"
 	set needsComma ","
     }
     puts $wrapper_file ");"
+
+    
+    for {set i $tx_count} {$i > 0} {incr i -1} {
+	puts -nonewline $wrapper_file "channel_out($i) <= "
+	puts $wrapper_file [dict get $GT_TYPEs $GT_TYPE]
+    }
     puts $wrapper_file "end architecture behavioral;"
     close $wrapper_file
     read_vhdl ${wrapper_filename}
