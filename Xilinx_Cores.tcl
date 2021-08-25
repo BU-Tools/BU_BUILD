@@ -4,8 +4,8 @@ source -notrace ${BD_PATH}/axi_helpers.tcl
 
 proc WritePackage {outfile name data} {
     puts $outfile "type $name is record"
-    foreach {key value} $data {
-	puts $outfile [format "  %-30s : %s;" $key $value ]
+    dict for {key value} $data {
+	puts $outfile [format "  %-30s : %s;" $key [lindex $value 0] ]
     }
     puts $outfile "end record $name;"
     puts $outfile "type ${name}_array_t is array (integer range <>) of $name;"
@@ -26,10 +26,10 @@ proc BuildMGTCores {params} {
     set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE}]
 
     dict create GT_TYPEs {}
-    dict append GT_TYPEs "UNKNOWN" "\"00\""
-    dict append GT_TYPEs "GTH" "\"01\""
-    dict append GT_TYPEs "GTX" "\"10\""
-    dict append GT_TYPEs "GTY" "\"11\""
+    dict append GT_TYPEs "UNKNOWN" "\"0000\""
+    dict append GT_TYPEs "GTH" "\"0001\""
+    dict append GT_TYPEs "GTX" "\"0010\""
+    dict append GT_TYPEs "GTY" "\"0011\""
 
     #####################################
     #create IP            
@@ -59,7 +59,7 @@ proc BuildMGTCores {params} {
     dict append property_list CONFIG.LOCATE_RX_USER_CLOCKING $LOCATE_RX_USER_CLOCKING
 
     #add optional ports to the device
-    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS {cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in}
+    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS {cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in}
 
     #clocking
     foreach {dict_key dict_value} $clocking {
@@ -93,8 +93,8 @@ proc BuildMGTCores {params} {
     
     #apply all the properties to the IP Core
     set_property -dict $property_list [get_ips ${device_name}]
-    generate_target -force {synthesis} [get_ips ${device_name}]
-    
+    generate_target -force {instantiation_template synthesis} [get_ips ${device_name}]
+    synth_ip [get_ips ${device_name}]
     
 
     #####################################
@@ -107,7 +107,7 @@ proc BuildMGTCores {params} {
 	error "tx_count and rx_count don't match"
     }
 
-    set example_verilog_filename [get_files -filter "PARENT_COMPOSITE_FILE == ${xci_file}" ${device_name}.v]
+    set example_verilog_filename [get_files -filter "PARENT_COMPOSITE_FILE == ${xci_file}" "*/synth/${device_name}.v"]
     set example_verilog_file [open ${example_verilog_filename} r]
     set file_data [read ${example_verilog_file}]
     set data [split ${file_data} "\n"]
@@ -116,10 +116,23 @@ proc BuildMGTCores {params} {
     dict create common_out {}
     dict create channel_in  {}
     dict create channel_out {}
-    dict append channel_out TXRX_TYPE "std_logic_vector(1 downto 0)" 
+    set component_info {}
+    dict append channel_out TXRX_TYPE {"std_logic_vector(3 downto 0)" 4}
 
     foreach line $data {
-	if {[regexp { *(output|input) *wire *\[([0-9]*) *: *([0-9]*)\] *([a-zA-Z_]*);} ${line}  full_match direction MSB LSB name] == 1} {
+	if {[regexp { *(output|input) *wire *\[([0-9]*) *: *([0-9]*)\] *([a-zA-Z_0-9]*);} ${line}  full_match direction MSB LSB name] == 1} {
+
+	    #build a list of IOs for the vhdl component
+	    set component_line "$name : "
+	    if {$direction == "output"} {
+		append component_line "out "
+	    } elseif {$direction == "input"} {
+		append component_line "in  "
+	    }
+	    append component_line "std_logic_vector($MSB downto $LSB)"
+	    lappend component_info $component_line
+
+
 	    #this has passed a regex for a verilog wire line, so we need to process it. 
 	    #unless it is a userdata signal, since we want to split that up by channel
 	    if { [string range $name 0 5] == "gtwiz_" && [string first "userdata" $name] == -1} {
@@ -130,11 +143,12 @@ proc BuildMGTCores {params} {
 		} else {
 		    set type "std_logic_vector($MSB downto 0)"
 		}
+		set bitsize [expr ($MSB - $LSB)+1]
 		#this is a common signal, so just use it
 		if {$direction == "output"} {
-		    dict append common_out $name $type
+		    dict append common_out $name [list $type $bitsize]
 		} elseif {$direction == "input"} {
-		    dict append common_in $name $type
+		    dict append common_in  $name [list $type $bitsize]
 		} else {
 		    error "Invalid in/out type $line"
 		}
@@ -156,9 +170,9 @@ proc BuildMGTCores {params} {
 		    }
 		    #save the line
 		    if {$direction == "output"} {
-			dict append channel_out $name $type
+			dict append channel_out $name [list $type $bitsize]
 		    } elseif {$direction == "input"} {
-			dict append channel_in $name $type
+			dict append channel_in  $name [list $type $bitsize]
 		    } else {
 			error "Invalid in/out type $line"
 		    }				    
@@ -166,10 +180,10 @@ proc BuildMGTCores {params} {
 		
 
 	    }
-
+	    
 	}
     }
-
+    
     #write the packages for this wrapper
     set package_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_pkg.vhd"
     set package_file [open ${package_filename} w]
@@ -205,41 +219,60 @@ proc BuildMGTCores {params} {
     puts $wrapper_file "    channel_out : out ${device_name}_ChannelOut_array_t($tx_count downto 1));"
     puts $wrapper_file "end entity ${device_name}_wrapper;\n"
     puts $wrapper_file "architecture behavioral of ${device_name}_wrapper is"
+    #component declaration for verilog interface
+    
+    puts $wrapper_file "component ${device_name}"
+    puts $wrapper_file "  port("
+    for {set i 0} {$i < [expr [llength $component_info]-1]} {incr i } {
+	puts -nonewline $wrapper_file [lindex $component_info $i]
+	puts $wrapper_file ";"
+    }
+    puts -nonewline $wrapper_file [lindex $component_info [expr [llength $component_info]-1] ]
+    puts $wrapper_file "  );"
+    puts $wrapper_file "END COMPONENT;"
+
+
     puts $wrapper_file "begin"
     puts $wrapper_file "${device_name}_inst : entity work.${device_name}"
     puts $wrapper_file "  port map ("
     #helps keep the final comma missing 
     set needsComma " "
     foreach {key value} $common_in {
-	puts -nonewline $wrapper_file  "$needsComma \n    $key => Common_In.$key"
+	puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Common_In.$key"
 	set needsComma ","
     }
     foreach {key value} $common_out {
-	puts -nonewline $wrapper_file  "$needsComma \n    $key => Common_Out.$key"
+	puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Common_Out.$key"
 	set needsComma ","
     }
     foreach {key value} $channel_in {
-	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector("
+	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector'("
 	for {set i $tx_count} {$i > 1} {incr i -1} {
 	    puts $wrapper_file "             Channel_In($i).$key  &"
 	}
 	puts -nonewline $wrapper_file "              Channel_In(1).$key)"
 	set needsComma ","
     }
-    foreach {key value} $channel_out {
-	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector("
-	for {set i $tx_count} {$i > 1} {incr i -1} {
-	    puts $wrapper_file "              Channel_Out($i).$key &"
+    foreach {key value } $channel_out {
+	if {$key != "TXRX_TYPE"} {
+	    set value_size [lindex $value 1]
+	    for {set i 0} {$i < $tx_count} {incr i} {
+		if { $value_size == 1 } {
+		    puts $wrapper_file  "$needsComma \n    $key ($i) => Channel_Out($i + 1).$key"
+		} else {
+		    puts $wrapper_file  "$needsComma \n    $key (($value_size*($i+1))-1 downto ($value_size*$i)) => Channel_Out($i + 1).$key"
+		}
+	    }
+	    set needsComma ","
 	}
-	puts -nonewline $wrapper_file "              Channel_Out(1).$key)"
-	set needsComma ","
     }
     puts $wrapper_file ");"
 
     
     for {set i $tx_count} {$i > 0} {incr i -1} {
-	puts -nonewline $wrapper_file "channel_out($i) <= "
-	puts $wrapper_file [dict get $GT_TYPEs $GT_TYPE]
+	puts -nonewline $wrapper_file "channel_out($i).TXRX_TYPE <= "
+	puts -nonewline $wrapper_file [dict get $GT_TYPEs $GT_TYPE]
+	puts $wrapper_file ";"
     }
     puts $wrapper_file "end architecture behavioral;"
     close $wrapper_file
