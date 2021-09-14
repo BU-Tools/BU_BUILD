@@ -1,7 +1,5 @@
 source -notrace ${BD_PATH}/axi_helpers.tcl
 
-
-
 proc WritePackage {outfile name data} {
     puts $outfile "type $name is record"
     dict for {key value} $data {
@@ -10,6 +8,87 @@ proc WritePackage {outfile name data} {
     puts $outfile "end record $name;"
     puts $outfile "type ${name}_array_t is array (integer range <>) of $name;"
 }
+
+proc BuildCore {device_name core_type} {
+    global build_name
+    global apollo_root_path
+    global autogen_path
+
+    #####################################
+    #create IP            
+    #####################################    
+    set output_path ${apollo_root_path}/${autogen_path}/cores/    
+    file mkdir ${output_path}
+
+    #delete if it already exists
+    if { [get_ips -quiet $device_name] == $device_name } {
+	export_ip_user_files -of_objects  [get_files ${device_name}.xci] -no_script -reset -force -quiet
+	remove_files  ${device_name}.xci
+    }
+    #create
+    puts $core_type
+    puts $device_name
+    puts $output_path
+    create_ip -vlnv [get_ipdefs -filter "NAME == $core_type"] -module_name ${device_name} -dir ${output_path}
+    #put xci_file in the scope of the calling function
+    upvar 1 xci_file x
+    set x [get_files ${device_name}.xci]    
+}
+
+proc BuildILA {params} {
+    global build_name
+    global apollo_root_path
+    global autogen_path
+
+    set_required_values $params {device_name}
+    set_required_values $params {probes} False
+    set_optional_values $params [dict create EN_STRG_QUAL 1  ADV_TRIGGER false ALL_PROBE_SAME_MU_CNT 2 ENABLE_ILA_AXI_MON false MONITOR_TYPE Native ]
+
+    #build the core
+    BuildCore $device_name ila
+
+
+    #start a list of properties
+    dict create property_list {}
+
+    #add parameters
+    dict append property_list CONFIG.C_EN_STRG_QUAL          $EN_STRG_QUAL
+    dict append property_list CONFIG.C_ADV_TRIGGER           $ADV_TRIGGER
+    dict append property_list CONFIG.ALL_PROBE_SAME_MU_CNT   $ALL_PROBE_SAME_MU_CNT
+    dict append property_list CONFIG.C_ENABLE_ILA_AXI_MON    $ENABLE_ILA_AXI_MON
+    dict append property_list CONFIG.C_MONITOR_TYPE          $MONITOR_TYPE
+
+    #====================================
+    #Parse the probes.
+    #====================================
+    #set the count of probes
+    set probe_count 0
+    #build each probe
+    dict for {probe probe_info} $probes {
+	#set the probe count to the max in the list
+	if { $probe > $probe_count } {	    
+	    set probe_count $probe
+	}
+	dict for {key value} $probe_info {
+	    if {$key == "TYPE"} {
+		dict append property_list CONFIG.C_PROBE${probe}_TYPE $value
+	    } elseif {$key == "WIDTH"} {		
+		dict append property_list CONFIG.C_PROBE${probe}_WIDTH $value
+	    } elseif {$key == "MU_CNT"} {		
+		dict append property_list CONFIG.C_PROBE${probe}_MU_CNT $value
+	    }
+	}
+    }
+
+    dict append property_list CONFIG.C_NUM_OF_PROBES $probe_count
+    
+    #apply all the properties to the IP Core
+    set_property -dict $property_list [get_ips ${device_name}]
+    generate_target -force {all} [get_ips ${device_name}]
+    synth_ip [get_ips ${device_name}]
+    
+}
+
 proc BuildMGTCores {params} {
     global build_name
     global apollo_root_path
@@ -31,22 +110,10 @@ proc BuildMGTCores {params} {
     dict append GT_TYPEs "GTX" "\"0010\""
     dict append GT_TYPEs "GTY" "\"0011\""
 
-    #####################################
-    #create IP            
-    #####################################
-    set output_path ${apollo_root_path}/${autogen_path}/cores/    
-#    file delete -force -- ${output_path}/${device_name}
-    file mkdir ${output_path}
 
 
-    #delete if it already exists
-    if { [get_ips -quiet $device_name] == $device_name } {
-	export_ip_user_files -of_objects  [get_files ${device_name}.xci] -no_script -reset -force -quiet
-	remove_files  ${device_name}.xci
-    }
-    #create
-    create_ip -vlnv [get_ipdefs -filter {NAME == gtwizard_ultrascale}] -module_name ${device_name} -dir ${output_path}
-    set xci_file [get_files ${device_name}.xci]
+    #build the core
+    BuildCore $device_name gtwizard_ultrascale
 	
 
     #start a list of properties
@@ -59,7 +126,7 @@ proc BuildMGTCores {params} {
     dict append property_list CONFIG.LOCATE_RX_USER_CLOCKING $LOCATE_RX_USER_CLOCKING
 
     #add optional ports to the device
-    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS {cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in}
+    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS {cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in}
 
     #clocking
     foreach {dict_key dict_value} $clocking {
@@ -93,9 +160,11 @@ proc BuildMGTCores {params} {
     
     #apply all the properties to the IP Core
     set_property -dict $property_list [get_ips ${device_name}]
-    generate_target -force {instantiation_template synthesis} [get_ips ${device_name}]
+#    generate_target -force {instantiation_template synthesis} [get_ips ${device_name}]
+    generate_target -force {all} [get_ips ${device_name}]
     synth_ip [get_ips ${device_name}]
-    
+#    set xdc_file [get_files -filter "PARENT_COMPOSITE_FILE == ${xci_file}" "*/synth/${device_name}.xdc"]
+#    read_xdc ${xdc_file}
 
     #####################################
     #create a wrapper 
