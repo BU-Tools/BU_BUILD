@@ -1,12 +1,14 @@
 source -notrace ${BD_PATH}/axi_helpers.tcl
 
 proc WritePackage {outfile name data} {
-    puts $outfile "type $name is record"
-    dict for {key value} $data {
-	puts $outfile [format "  %-30s : %s;" $key [lindex $value 0] ]
+    if { [dict size $data] > 0 } {
+	puts $outfile "type $name is record"
+	dict for {key value} $data {
+	    puts $outfile [format "  %-30s : %s;" $key [lindex $value 0] ]
+	}
+	puts $outfile "end record $name;"
+	puts $outfile "type ${name}_array_t is array (integer range <>) of $name;"
     }
-    puts $outfile "end record $name;"
-    puts $outfile "type ${name}_array_t is array (integer range <>) of $name;"
 }
 
 proc BuildCore {device_name core_type} {
@@ -101,8 +103,10 @@ proc BuildMGTCores {params} {
     set_required_values $params {protocol} False
     set_required_values $params {links} False
     set_required_values $params {GT_TYPE}
+   
 
     set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE}]
+    set_optional_values $params [dict create optional {" "}]
 
     dict create GT_TYPEs {}
     dict append GT_TYPEs "UNKNOWN" "\"0000\""
@@ -126,7 +130,16 @@ proc BuildMGTCores {params} {
     dict append property_list CONFIG.LOCATE_RX_USER_CLOCKING $LOCATE_RX_USER_CLOCKING
 
     #add optional ports to the device
-    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS {cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in}
+    set optional_ports [list cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in]
+    if {[info exists optional]} {
+	set optional_ports [concat $optional_ports $optional]
+	puts "Adding optional values: $optional"
+    } else {
+	puts "no additional optional values"
+    }
+    dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS $optional_ports
+
+
 
     #clocking
     foreach {dict_key dict_value} $clocking {
@@ -160,11 +173,8 @@ proc BuildMGTCores {params} {
     
     #apply all the properties to the IP Core
     set_property -dict $property_list [get_ips ${device_name}]
-#    generate_target -force {instantiation_template synthesis} [get_ips ${device_name}]
     generate_target -force {all} [get_ips ${device_name}]
     synth_ip [get_ips ${device_name}]
-#    set xdc_file [get_files -filter "PARENT_COMPOSITE_FILE == ${xci_file}" "*/synth/${device_name}.xdc"]
-#    read_xdc ${xdc_file}
 
     #####################################
     #create a wrapper 
@@ -183,6 +193,8 @@ proc BuildMGTCores {params} {
     close $example_verilog_file
     dict create common_in  {}
     dict create common_out {}
+    dict create clocks_in  {}
+    dict create clocks_out {}
     dict create channel_in  {}
     dict create channel_out {}
     set component_info {}
@@ -204,7 +216,24 @@ proc BuildMGTCores {params} {
 
 	    #this has passed a regex for a verilog wire line, so we need to process it. 
 	    #unless it is a userdata signal, since we want to split that up by channel
-	    if { [string range $name 0 5] == "gtwiz_" && [string first "userdata" $name] == -1} {
+	    if { [string first "refclk" $name] >= 0 || [string first "qpll" $name] >= 0 } {
+		#see if this is a vector or a signal
+		set type ""
+		if {$MSB == 0} {
+		    set type "std_logic"			
+		} else {
+		    set type "std_logic_vector($MSB downto 0)"
+		}
+		set bitsize [expr ($MSB - $LSB)+1]
+		#this is a common signal, so just use it
+		if {$direction == "output"} {
+		    dict append clocks_out $name [list $type $bitsize]
+		} elseif {$direction == "input"} {
+		    dict append clocks_in  $name [list $type $bitsize]
+		} else {
+		    error "Invalid in/out type $line"
+		}
+	    } elseif { [string range $name 0 5] == "gtwiz_" && [string first "userdata" $name] == -1  } {
 		#see if this is a vector or a signal
 		set type ""
 		if {$MSB == 0} {
@@ -267,6 +296,12 @@ proc BuildMGTCores {params} {
  
     WritePackage $package_file "${device_name}_CommonIn"   $common_in
     WritePackage $package_file "${device_name}_CommonOut"  $common_out
+    if { [info exists clocks_in]} {
+	WritePackage $package_file "${device_name}_ClocksIn"   $clocks_in
+    }
+    if { [info exists clocks_out]} {
+	WritePackage $package_file "${device_name}_ClocksOut"  $clocks_out
+    }
     WritePackage $package_file "${device_name}_ChannelIn"  $channel_in
     WritePackage $package_file "${device_name}_ChannelOut" $channel_out
     
@@ -284,6 +319,12 @@ proc BuildMGTCores {params} {
     puts $wrapper_file "  port ("
     puts $wrapper_file "    common_in   : in  ${device_name}_CommonIn;"
     puts $wrapper_file "    common_out  : out ${device_name}_CommonOut;"
+    if { [info exists clocks_in]} {
+	puts $wrapper_file "    clocks_in   : in  ${device_name}_ClocksIn;"
+    }
+    if { [info exists clocks_out]} {
+	puts $wrapper_file "    clocks_out  : out ${device_name}_ClocksOut;"
+    }
     puts $wrapper_file "    channel_in  : in  ${device_name}_ChannelIn_array_t($tx_count downto 1);"
     puts $wrapper_file "    channel_out : out ${device_name}_ChannelOut_array_t($tx_count downto 1));"
     puts $wrapper_file "end entity ${device_name}_wrapper;\n"
@@ -313,6 +354,28 @@ proc BuildMGTCores {params} {
     foreach {key value} $common_out {
 	puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Common_Out.$key"
 	set needsComma ","
+    }
+    if { [info exists clocks_in]} {
+	foreach {key value} $clocks_in {
+	    if {[lindex $value 1] == 0} {
+		puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Clocks_In.$key"
+		set needsComma ","
+	    } else {
+		puts -nonewline $wrapper_file  "$needsComma \n    $key     => Clocks_In.$key"
+		set needsComma ","
+	    }
+	}    
+    }
+    if { [info exists clocks_out]} {
+	foreach {key value} $clocks_out {
+	    if {[lindex $value 1] == 0} {
+		puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Clocks_Out.$key"
+		set needsComma ","
+	    } else {
+		puts -nonewline $wrapper_file  "$needsComma \n    $key     => Clocks_Out.$key"
+		set needsComma ","
+	    }
+	}
     }
     foreach {key value} $channel_in {
 	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector'("
