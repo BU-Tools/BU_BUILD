@@ -106,7 +106,7 @@ proc BuildMGTCores {params} {
    
 
     set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE}]
-    set_optional_values $params [dict create optional {" "}]
+
 
     dict create GT_TYPEs {}
     dict append GT_TYPEs "UNKNOWN" "\"0000\""
@@ -131,9 +131,10 @@ proc BuildMGTCores {params} {
 
     #add optional ports to the device
     set optional_ports [list cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in]
-    if {[info exists optional]} {
-	set optional_ports [concat $optional_ports $optional]
-	puts "Adding optional values: $optional"
+    if {[dict exists $params optional]} {
+	set additional_optional_ports [dict get $params optional]
+	set optional_ports [concat $optional_ports $additional_optional_ports]
+	puts "Adding optional values: $additional_optional_ports"
     } else {
 	puts "no additional optional values"
     }
@@ -413,18 +414,55 @@ proc BuildMGTCores {params} {
 }
 
 
+proc CheckExists { source_dict keys } {
+    set missing_elements False
 
+    foreach key $keys {
+	if {! [dict exists $source_dict $key] } {
+	    puts "Missing key $key"
+	    set missing_elements True
+	}    
+    }
+    if { $missing_elements == True} {
+	error "Dictionary missing required elements"
+    }
+}
 
+proc BuildFIFO {params} {
+    global build_name
+    global apollo_root_path
+    global autogen_path
 
+    set_required_values $params {device_name}
+    set_required_values $params {Input} False
+    set_required_values $params {Output} False
+    set_required_values $params Type
 
-#other optional ports not selected
-#stepdir_in cdrstepsq_in cdrstepsx_in cfgreset_in clkrsvd0_in clkrsvd1_in cpllfreqlock_in cplllockdetclk_in cplllocken_in cpllrefclksel_in cpllreset_in dmonfiforeset_in dmonitorclk_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in freqos_in gtgrefclk_in gtnorthrefclk0_in gtnorthrefclk1_in gtrefclk1_in gtrsvd_in gtrxresetsel_in gtsouthrefclk0_in gtsouthrefclk1_in gttxresetsel_in incpctrl_in loopback_in pcieeqrxeqadaptdone_in pcierstidle_in pciersttxsyncstart_in pcieuserratedone_in qpll0clk_in qpll0freqlock_in qpll0refclk_in qpll1clk_in qpll1freqlock_in qpll1refclk_in resetovrd_in rxafecfoken_in rxcdrfreqreset_in rxcdrovrden_in rxcdrreset_in rxchbonden_in rxchbondi_in rxchbondlevel_in rxchbondmaster_in rxchbondslave_in rxckcalreset_in rxckcalstart_in rxdfeagcctrl_in rxdfeagchold_in rxdfeagcovrden_in rxdfecfokfcnum_in rxdfecfokfen_in rxdfecfokfpulse_in rxdfecfokhold_in rxdfecfokovren_in rxdfekhhold_in rxdfekhovrden_in rxdfelfhold_in rxdfelfovrden_in rxdfetap2hold_in rxdfetap2ovrden_in rxdfetap3hold_in rxdfetap3ovrden_in rxdfetap4hold_in rxdfetap4ovrden_in rxdfetap5hold_in rxdfetap5ovrden_in rxdfetap6hold_in rxdfetap6ovrden_in rxdfetap7hold_in rxdfetap7ovrden_in rxdfetap8hold_in rxdfetap8ovrden_in rxdfetap9hold_in rxdfetap9ovrden_in rxdfetap10hold_in rxdfetap10ovrden_in rxdfetap11hold_in rxdfetap11ovrden_in rxdfetap12hold_in rxdfetap12ovrden_in rxdfetap13hold_in rxdfetap13ovrden_in rxdfetap14hold_in rxdfetap14ovrden_in rxdfetap15hold_in rxdfetap15ovrden_in rxdfeuthold_in rxdfeutovrden_in rxdfevphold_in rxdfevpovrden_in rxdfexyden_in rxdlybypass_in rxdlyen_in rxdlyovrden_in rxdlysreset_in rxelecidlemode_in rxeqtraining_in rxgearboxslip_in rxlatclk_in rxlpmgchold_in rxlpmgcovrden_in rxlpmhfhold_in rxlpmhfovrden_in rxlpmlfhold_in rxlpmlfklovrden_in rxlpmoshold_in rxlpmosovrden_in rxmonitorsel_in rxoobreset_in rxoscalreset_in rxoshold_in rxosovrden_in rxoutclksel_in rxpd_in rxphalign_in rxphalignen_in rxphdlypd_in rxphdlyreset_in rxphovrden_in rxpllclksel_in rxpolarity_in rxqpien_in rxratemode_in rxslide_in rxslipoutclk_in rxslippma_in rxsyncallin_in rxsyncin_in rxsyncmode_in rxsysclksel_in rxtermination_in sigvalidclk_in tstin_in tx8b10bbypass_in txcominit_in txcomsas_in txcomwake_in txdataextendrsvd_in txdccforcestart_in txdccreset_in txdeemph_in txdetectrx_in txdlybypass_in txdlyen_in txdlyhold_in txdlyovrden_in txdlysreset_in txdlyupdown_in txelecidle_in txheader_in txlatclk_in txlfpstreset_in txlfpsu2lpexit_in txlfpsu3wake_in txmaincursor_in txmargin_in txmuxdcdexhold_in txmuxdcdorwren_in txoneszeros_in txoutclksel_in txpd_in txpdelecidlemode_in txphalign_in txphalignen_in txphdlypd_in txphdlyreset_in txphdlytstclk_in txphinit_in txphovrden_in txpippmen_in txpippmovrden_in txpippmpd_in txpippmsel_in txpippmstepsize_in txpisopd_in txpllclksel_in txqpibiasen_in txqpiweakpup_in txrate_in txratemode_in txsequence_in txswing_in txsyncallin_in txsyncin_in txsyncmode_in txsysclksel_in bufgtce_out bufgtcemask_out bufgtdiv_out bufgtreset_out bufgtrstmask_out cpllfbclklost_out cpllrefclklost_out dmonitoroutclk_out drpdo_out drprdy_out gtrefclkmonitor_out pcierategen3_out pcierateidle_out pcierateqpllpd_out pcierateqpllreset_out pciesynctxsyncdone_out pcieusergen3rdy_out pcieuserphystatusrst_out pcieuserratestart_out pcsrsvdout_out phystatus_out pinrsrvdas_out powerpresent_out resetexception_out rxcdrlock_out rxcdrphdone_out rxchanbondseq_out rxchanisaligned_out rxchanrealign_out rxchbondo_out rxckcaldone_out rxclkcorcnt_out rxcominitdet_out rxcomsasdet_out rxcomwakedet_out rxdata_out rxdataextendrsvd_out rxdatavalid_out rxdlysresetdone_out rxelecidle_out rxheader_out rxheadervalid_out rxlfpstresetdet_out rxlfpsu2lpexitdet_out rxlfpsu3wakedet_out rxmonitorout_out rxosintdone_out rxosintstarted_out rxosintstrobedone_out rxosintstrobestarted_out rxoutclk_out rxoutclkfabric_out rxoutclkpcs_out rxphaligndone_out rxphalignerr_out rxprbslocked_out rxprgdivresetdone_out rxqpisenn_out rxqpisenp_out rxratedone_out rxrecclkout_out rxsliderdy_out rxslipdone_out rxslipoutclkrdy_out rxslippmardy_out rxstartofseq_out rxstatus_out rxsyncdone_out rxsyncout_out rxvalid_out txcomfinish_out txdccdone_out txdlysresetdone_out txoutclk_out txoutclkfabric_out txoutclkpcs_out txphaligndone_out txphinitdone_out txprgdivresetdone_out txqpisenn_out txqpisenp_out txratedone_out txsyncdone_out txsyncout_out}
+    #build the core
+    BuildCore $device_name fifo_generator
+	
+    #start a list of properties
+    dict create property_list {}
+    
+    #do some more checking
+    CheckExists $Input {Width Depth}
+    CheckExists $Output {Width Depth}
 
+    #handle input side settings
+    dict append property_list CONFIG.Input_Data_Width [dict get $Input Width]
+    dict append property_list CONFIG.Input_Depth      [dict get $Input Depth]
+    dict append property_list CONFIG.Output_Data_Width [dict get $Output Width]
+    dict append property_list CONFIG.Output_Depth      [dict get $Output Depth]
+    if { [dict exists $Output Valid_Flag] } {
+	dict append property_list CONFIG.Valid_Flag    {true}
+    }
+    if { [dict exists $Output Fall_Through] } {
+	dict append property_list CONFIG.Performance_Options {First_Word_Fall_Through}
+    }
+    dict append property_list CONFIG.Fifo_Implementation $Type
 
-
-
-
-
-#BuildMGTCores [dict create device_name TEST freerun_frequency 100 clocking {TX {LINE_RATE 10 PLL_TYPE CPLL REFCLK_FREQUENCY 200} RX {LINE_RATE 10 PLL_TYPE CPLL REFCLK_FREQUENCY 200}} protocol {TX {DATA_ENCODING 8B10B INT_DATA_WIDTH 40} RX {DATA_DECODING 8B10B COMMA_PRESET K28.1 COMMA_P_ENABLE 1 COMMA_M_ENABLE 1 COMMA_P_VAL 1001111100 COMMA_M_VAL 0110000011 COMMA_MASK 1111111111}} core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE} links {X0Y0 {RX clk0 TX clk0} X0Y1 {RX clk0 TX clk0} X0Y2 {RX clk1 TX clk1} X0Y3 {RX clk0 TX clk0} X0Y4 {RX clk0-1 TX clk0-1} X0Y5 {RX clk0-1 TX clk0-1} X0Y6 {RX clk0 TX clk0} X0Y7 {RX clk1 TX clk1}}] 
-
-
+    #apply all the properties to the IP Core
+    set_property -dict $property_list [get_ips ${device_name}]
+    generate_target -force {all} [get_ips ${device_name}]
+    synth_ip [get_ips ${device_name}]
+}
