@@ -91,6 +91,29 @@ proc BuildILA {params} {
     
 }
 
+proc XMLentry {name addr MSB LSB direction} {
+    #set name and address
+    set node_line [format "  <node id=\"$name\" address=\"0x%08X\"" $addr]
+    
+    #build the mask from MSB and LSB ranges
+    set node_mask 0
+    for {set bit $LSB} {$bit <= $MSB} {incr bit} {
+	set node_mask [expr (2**$bit) + $node_mask]
+    }
+    set node_mask [format 0x%08X $node_mask]
+    set node_line "$node_line mask=\"$node_mask\""
+
+    #set read/write
+    if {$direction == "output"} {
+	set node_line "$node_line permission=\"r\""
+    } else {
+	set node_line "$node_line permission=\"rw\""
+    }
+    #end xml entry
+    set node_line "$node_line />\n"
+    return $node_line
+}
+
 proc BuildMGTCores {params} {
     global build_name
     global apollo_root_path
@@ -105,7 +128,7 @@ proc BuildMGTCores {params} {
     set_required_values $params {GT_TYPE}
    
 
-    set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE}]
+    set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE LOCATE_RESET_CONTROLLER CORE}]
 
 
     dict create GT_TYPEs {}
@@ -128,6 +151,7 @@ proc BuildMGTCores {params} {
     dict append property_list CONFIG.FREERUN_FREQUENCY $freerun_frequency
     dict append property_list CONFIG.LOCATE_TX_USER_CLOCKING $LOCATE_TX_USER_CLOCKING
     dict append property_list CONFIG.LOCATE_RX_USER_CLOCKING $LOCATE_RX_USER_CLOCKING
+    dict append property_list CONFIG.LOCATE_RESET_CONTROLLER $LOCATE_RESET_CONTROLLER
 
     #add optional ports to the device
     set optional_ports [list cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in]
@@ -201,6 +225,8 @@ proc BuildMGTCores {params} {
     set component_info {}
     dict append channel_out TXRX_TYPE {"std_logic_vector(3 downto 0)" 4}
 
+    set reg_count 0
+    set regs_xml [dict create clocks_in "\n" clocks_out "\n" common_in "\n" common_out "\n" channel_in "\n" channel_out "\n"]
     foreach line $data {
 	if {[regexp { *(output|input) *wire *\[([0-9]*) *: *([0-9]*)\] *([a-zA-Z_0-9]*);} ${line}  full_match direction MSB LSB name] == 1} {
 
@@ -213,7 +239,6 @@ proc BuildMGTCores {params} {
 	    }
 	    append component_line "std_logic_vector($MSB downto $LSB)"
 	    lappend component_info $component_line
-
 
 	    #this has passed a regex for a verilog wire line, so we need to process it. 
 	    #unless it is a userdata signal, since we want to split that up by channel
@@ -229,8 +254,13 @@ proc BuildMGTCores {params} {
 		#this is a common signal, so just use it
 		if {$direction == "output"} {
 		    dict append clocks_out $name [list $type $bitsize]
+		    dict append regs_xml clocks_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+		    set reg_count [expr $reg_count + 1]
+
 		} elseif {$direction == "input"} {
 		    dict append clocks_in  $name [list $type $bitsize]
+		    dict append regs_xml clocks_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+		    set reg_count [expr $reg_count + 1]
 		} else {
 		    error "Invalid in/out type $line"
 		}
@@ -246,8 +276,12 @@ proc BuildMGTCores {params} {
 		#this is a common signal, so just use it
 		if {$direction == "output"} {
 		    dict append common_out $name [list $type $bitsize]
+		    dict append regs_xml common_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+		    set reg_count [expr $reg_count + 1]
 		} elseif {$direction == "input"} {
 		    dict append common_in  $name [list $type $bitsize]
+		    dict append regs_xml common_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+		    set reg_count [expr $reg_count + 1]
 		} else {
 		    error "Invalid in/out type $line"
 		}
@@ -270,8 +304,12 @@ proc BuildMGTCores {params} {
 		    #save the line
 		    if {$direction == "output"} {
 			dict append channel_out $name [list $type $bitsize]
+			dict append regs_xml channel_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+			set reg_count [expr $reg_count + 1]
 		    } elseif {$direction == "input"} {
 			dict append channel_in  $name [list $type $bitsize]
+			dict append regs_xml channel_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+			set reg_count [expr $reg_count + 1]
 		    } else {
 			error "Invalid in/out type $line"
 		    }				    
@@ -282,6 +320,17 @@ proc BuildMGTCores {params} {
 	    
 	}
     }
+
+    #write out example xml regs
+    set xml_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_regs.xml"
+    set xml_file [open ${xml_filename} w]
+    puts $xml_file [dict get $regs_xml clocks_in]
+    puts $xml_file [dict get $regs_xml clocks_out]
+    puts $xml_file [dict get $regs_xml common_in]
+    puts $xml_file [dict get $regs_xml common_out]
+    puts $xml_file [dict get $regs_xml channel_in]
+    puts $xml_file [dict get $regs_xml channel_out]
+    close $xml_file
     
     #write the packages for this wrapper
     set package_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_pkg.vhd"
