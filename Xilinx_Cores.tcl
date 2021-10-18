@@ -93,7 +93,8 @@ proc BuildILA {params} {
 
 proc XMLentry {name addr MSB LSB direction} {
     #set name and address
-    set node_line [format "  <node id=\"$name\" address=\"0x%08X\"" $addr]
+    set upper_name [string toupper $name]
+    set node_line [format "  <node id=\"$upper_name\" address=\"0x%08X\"" $addr]
     
     #build the mask from MSB and LSB ranges
     set node_mask 0
@@ -322,15 +323,15 @@ proc BuildMGTCores {params} {
     }
 
     #write out example xml regs
-    set xml_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_regs.xml"
-    set xml_file [open ${xml_filename} w]
-    puts $xml_file [dict get $regs_xml clocks_in]
-    puts $xml_file [dict get $regs_xml clocks_out]
-    puts $xml_file [dict get $regs_xml common_in]
-    puts $xml_file [dict get $regs_xml common_out]
-    puts $xml_file [dict get $regs_xml channel_in]
-    puts $xml_file [dict get $regs_xml channel_out]
-    close $xml_file
+    dict for {key value} $regs_xml {
+	set xml_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_regs_$key.xml"
+	set xml_file [open ${xml_filename} w]
+	puts $xml_file "<node id=\"$key\">"
+	puts $xml_file [dict get $regs_xml $key]
+	puts $xml_file "</node>"
+	close $xml_file
+    }
+
     
     #write the packages for this wrapper
     set package_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_pkg.vhd"
