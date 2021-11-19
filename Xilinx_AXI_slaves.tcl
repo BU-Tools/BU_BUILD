@@ -306,7 +306,8 @@ proc AXI_IP_UART {params} {
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
 
     #connect interrupt
-    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins ${irq_port}]
+    CONNECT_IRQ ${device_name}/interrupt ${irq_port}
+#    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins ${irq_port}]
 
     
     puts "Added Xilinx UART AXI Slave: $device_name"
@@ -345,11 +346,13 @@ proc C2C_AURORA {params} {
     }
     set_property CONFIG.SINGLEEND_INITCLK    {true}       [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_USE_CHIPSCOPE      {true}       [get_bd_cells ${C2C_PHY}]
+    set_property CONFIG.drp_mode             {NATIVE}     [get_bd_cells ${C2C_PHY}]
 #    set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${C2C_PHY}]
 #    set_property CONFIG.TransceiverControl   {false}      [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
-    
+    #expose the DRP interface
+    make_bd_intf_pins_external  -name ${C2C_PHY}_DRP                       [get_bd_intf_pins ${C2C_PHY}/GT0_DRP]
    
     #connect to interconnect (init clock)
     set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
@@ -438,7 +441,7 @@ proc AXI_C2C_MASTER {params} {
     set_required_values $params {primary_serdes init_clk refclk_freq}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K}]
+    set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K} irq_port "."]
 
     #create the actual C2C master
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
@@ -480,6 +483,15 @@ proc AXI_C2C_MASTER {params} {
                      init_clk $init_clk \
                      refclk_freq $refclk_freq]
     
+
+    #connect interrupt
+    if { [get_bd_pins -quiet ${irq_port}] != "." } {
+	CONNECT_IRQ ${device_name}/axi_c2c_s2m_intr_out ${irq_port}
+#	connect_bd_net [get_bd_pins ${device_name}/axi_c2c_s2m_intr_out] [get_bd_pins ${irq_port}]
+    }
+
+    
+
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C master: $device_name"
 }
@@ -617,4 +629,40 @@ proc AXI_IP_BRAM {params} {
     make_bd_intf_pins_external  [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
 
     puts "Added Xilinx blockram: $device_name"
+}
+
+
+proc AXI_IP_IRQ_CTRL {params} {
+
+    # required values
+    set_required_values $params {device_name axi_control irq_dest}
+
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+
+    set_optional_values $params [dict create sw_intr_count 0]
+
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_intc}] $device_name
+
+    #connect to AXI, clk, and reset between slave and mastre
+    [AXI_DEV_CONNECT $params]
+
+    connect_bd_net [get_bd_pins ${device_name}/irq] [get_bd_pins ${irq_dest}]
+
+    set IRQ_CONCAT ${device_name}_IRQ
+    create_bd_cell -type ip -vlnv  [get_ipdefs -filter {NAME == xlconcat}] ${IRQ_CONCAT}
+    connect_bd_net [get_bd_pins ${IRQ_CONCAT}/dout] [get_bd_pins ${device_name}/intr]
+
+    puts "Added Xilinx Interrupt Controller AXI Slave: $device_name"
+}
+
+proc CONNECT_IRQ {irq_src irq_dest} {
+    set dest_name ${irq_dest}_IRQ
+    
+    set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
+    
+    set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+
+    connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${input_port_count}]  
+    puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${input_port_count}"
 }
