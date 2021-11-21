@@ -108,21 +108,10 @@ proc AXI_PL_DEV_CONNECT {params} {
 
 }
 
-proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0}} {
 
-    startgroup
-
-    #Create a new master port for this slave
-    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
-    
-    #connect the requested clock to the AXI interconnect clock port
-    connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
-    connect_bd_net [get_bd_pins $axi_rstn]  [get_bd_pins ${AXIM_RSTN_NAME}]
-
-    
+proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
     if [llength [get_bd_intf_pins -quiet $device_name/S_AXI]] {
-        connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         if [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
             connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
@@ -134,7 +123,6 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
             connect_bd_net -quiet     [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
         }
     } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
-        connect_bd_intf_net [get_bd_intf_pins $device_name/s_axi_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     } else {
@@ -142,6 +130,33 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
+}
+proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME} {
+    #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
+    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI]] {
+        connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
+        connect_bd_intf_net [get_bd_intf_pins $device_name/s_axi_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    } else {
+        connect_bd_intf_net [get_bd_intf_pins $device_name/*AXI*LITE*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    }
+}
+proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0}} {
+
+    startgroup
+
+    #Create a new master port for this slave
+    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    
+    #connect the requested clock to the AXI interconnect clock port
+    connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
+    connect_bd_net [get_bd_pins $axi_rstn]  [get_bd_pins ${AXIM_RSTN_NAME}]
+
+    #connect the bus
+    AXI_BUS_CONNECT $device_name $AXIM_PORT_NAME
+    #connect the clocks
+    AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn
+    
     endgroup
 }
 proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
@@ -213,6 +228,35 @@ proc AXI_DEV_CONNECT {params} {
     AXI_GEN_DTSI $device_name $remote_slave
 }
 
+
+proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn} {
+    #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
+    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI_lite]] {
+	if [llength [get_bd_pins -quiet $device_name/s_axi_lite_aclk]] {
+            connect_bd_net      [get_bd_pins $device_name/s_axi_lite_aclk]        [get_bd_pins $axi_clk]
+            connect_bd_net -quiet     [get_bd_pins -quiet $device_name/s_aresetn]     [get_bd_pins $axi_rstn]
+        } elseif       [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
+            connect_bd_net      [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
+            connect_bd_net      [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+        } else {	           
+            connect_bd_net      [get_bd_pins $device_name/s_aclk]                 [get_bd_pins $axi_clk]
+            connect_bd_net      [get_bd_pins $device_name/s_aresetn]              [get_bd_pins $axi_rstn]
+        }
+    } else {
+        connect_bd_net          [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
+        connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+    }
+}
+
+proc AXI_LITE_BUS_CONNECT {device_name AXIM_PORT_NAME} {
+    #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
+    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI_lite]] {
+        connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    } else {
+        connect_bd_intf_net     [get_bd_intf_pins $device_name/AXI_LITE] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    }
+}
+
 #This function is a simpler version of AXI_PL_DEV_CONNECT used for axi slaves in the bd.
 #The arguments are the device name, axi master name+channel and the clk/reset for the
 #channel
@@ -232,26 +276,9 @@ proc AXI_LITE_DEV_CONNECT {params} {
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
     connect_bd_net [get_bd_pins $axi_rstn]  [get_bd_pins ${AXIM_RSTN_NAME}]
 
+    AXI_LITE_BUS_CONNECT  $device_name $AXIM_PORT_NAME
+    AXI_LITE_CLK_CONNECT  $device_name $axi_clk $axi_rstn
 
-    #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
-    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI_lite]] {
-        connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
-
-	if [llength [get_bd_pins -quiet $device_name/s_axi_lite_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/s_axi_lite_aclk]        [get_bd_pins $axi_clk]
-            connect_bd_net -quiet     [get_bd_pins -quiet $device_name/s_aresetn]     [get_bd_pins $axi_rstn]
-        } elseif       [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
-        } else {	           
-            connect_bd_net      [get_bd_pins $device_name/s_aclk]                 [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/s_aresetn]              [get_bd_pins $axi_rstn]
-        }
-    } else {
-        connect_bd_intf_net     [get_bd_intf_pins $device_name/AXI_LITE] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
-        connect_bd_net          [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
-    }
 
     AXI_SET_ADDR $device_name $offset $range
     AXI_GEN_DTSI $device_name $remote_slave
