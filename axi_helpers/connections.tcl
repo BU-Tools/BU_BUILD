@@ -126,7 +126,6 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn} {
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     } else {
-        connect_bd_intf_net [get_bd_intf_pins $device_name/*AXI*LITE*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
