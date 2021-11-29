@@ -454,18 +454,28 @@ proc AXI_C2C_MASTER {params} {
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
     set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
 
-    #connect AXI interface to the firewall
-    set AXI_params $params
-    dict set AXI_params addr [dict get $params addr]
-    dict set AXI_params remote_slave -1
-    dict set AXI_params force_mem 1
-    [AXI_DEV_CONNECT $AXI_params]    
-    BUILD_AXI_ADDR_TABLE ${device_name}_Mem0 ${device_name}_AXI_BRIDGE
-    set AXILite_params $params
-    dict set AXILite_params addr [dict get $params addr_lite]
-    dict set AXILite_params remote_slave -1
-    [AXI_LITE_DEV_CONNECT $AXILite_params]
-    BUILD_AXI_ADDR_TABLE ${device_name}_Reg ${device_name}_AXI_LITE_BRIDGE
+    #connect AXI interface interconnect (firewall will cut this and insert itself)
+    if { [dict exists $params addr] } {
+	set AXI_params $params
+	dict set AXI_params addr [dict get $params addr]
+	dict set AXI_params remote_slave -1
+	dict set AXI_params force_mem 1
+	[AXI_DEV_CONNECT $AXI_params]    
+	BUILD_AXI_ADDR_TABLE ${device_name}_Mem0 ${device_name}_AXI_BRIDGE
+    } else {
+	AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn
+    }
+
+    if { [dict exists $params addr_lite] } {
+	set AXILite_params $params
+	dict set AXILite_params addr [dict get $params addr_lite]
+	dict set AXILite_params remote_slave -1
+	[AXI_LITE_DEV_CONNECT $AXILite_params]
+	BUILD_AXI_ADDR_TABLE ${device_name}_Reg ${device_name}_AXI_LITE_BRIDGE
+    } else {
+	AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn
+    }
+
 
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
