@@ -288,7 +288,7 @@ proc AXI_IP_UART {params} {
 
     # optional values
     # remote_slave -1 means don't generate a dtsi_ file
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
@@ -298,11 +298,11 @@ proc AXI_IP_UART {params} {
     #connect to AXI, clk, and reset between slave and mastre
 #    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
     #make sure the UART isn't given a dtsi file
-    dict set params remote_slave -1
+#    dict set params remote_slave -1
     [AXI_DEV_CONNECT $params]
 
     
-    #generate ports for the JTAG signals
+    #generate ports for the UART
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
 
     #connect interrupt

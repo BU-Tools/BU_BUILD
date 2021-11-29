@@ -117,7 +117,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK {device_name} {
 }
 
 #function to create a DTSI chunk file for a full PL AXI slave.
-proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
+proc AXI_DEV_UIO_DTSI_OVERLAY {device_name {dt_data "        compatible = \"generic-uio\";\n        label = \"$device_name\";\n        linux,uio-name = \"$device_name\";\n"}} {
     global dtsi_output_path
 
     global REMOTE_C2C
@@ -144,7 +144,7 @@ proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
     puts ${dtsi_file} "	    target = <&${amba_path}>;"
     puts ${dtsi_file} "	    __overlay__ {"
     puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
-    puts ${dtsi_file} "        compatible = \"generic-uio\";"
+#    puts ${dtsi_file} "        compatible = \"generic-uio\";"
     if { [expr [string length ${addr}] > 8 ] || 
 	 [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
 	 [info exists REMOTE_C2C_64] 
@@ -171,8 +171,11 @@ proc AXI_DEV_UIO_DTSI_OVERLAY {device_name} {
 	puts ${dtsi_file} "        #size-cells = <1>;"
 	puts ${dtsi_file} "        reg = <0x${addr} 0x${addr_range}>;"
     }
-    puts ${dtsi_file} "        label = \"$device_name\";"
-    puts ${dtsi_file} "        linux,uio-name = \"$device_name\";"
+#    puts ${dtsi_file} "        label = \"$device_name\";"
+#    puts ${dtsi_file} "        linux,uio-name = \"$device_name\";"
+    set map {}
+    lappend map {$device_name} $device_name
+    puts  ${dtsi_file} [string map $map  ${dt_data}]
     puts ${dtsi_file} "      };"
     puts ${dtsi_file} "    };"
     puts ${dtsi_file} "  };"
