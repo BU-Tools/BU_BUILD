@@ -288,7 +288,9 @@ proc AXI_IP_UART {params} {
 
     # optional values
     # remote_slave -1 means don't generate a dtsi_ file
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+#    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
+    #force remote_slave to -1
+    dict set params remote_slave -1
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
@@ -298,11 +300,11 @@ proc AXI_IP_UART {params} {
     #connect to AXI, clk, and reset between slave and mastre
 #    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
     #make sure the UART isn't given a dtsi file
-    dict set params remote_slave -1
+#    dict set params remote_slave -1
     [AXI_DEV_CONNECT $params]
 
     
-    #generate ports for the JTAG signals
+    #generate ports for the UART
     make_bd_intf_pins_external  -name ${device_name} [get_bd_intf_pins $device_name/UART]
 
     #connect interrupt
@@ -493,11 +495,9 @@ proc AXI_C2C_MASTER {params} {
     
 
     #connect interrupt
-    if { [get_bd_pins -quiet ${irq_port}] != "." } {
+    if { ${irq_port} != "."} {
 	CONNECT_IRQ ${device_name}/axi_c2c_s2m_intr_out ${irq_port}
-#	connect_bd_net [get_bd_pins ${device_name}/axi_c2c_s2m_intr_out] [get_bd_pins ${irq_port}]
     }
-
     
 
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
@@ -652,6 +652,10 @@ proc AXI_IP_IRQ_CTRL {params} {
 
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_intc}] $device_name
 
+    #global value for tracking
+    global IRQ_COUNT_${device_name}
+    set IRQ_COUNT_${device_name} 0
+
     #connect to AXI, clk, and reset between slave and mastre
     [AXI_DEV_CONNECT $params]
 
@@ -665,12 +669,25 @@ proc AXI_IP_IRQ_CTRL {params} {
 }
 
 proc CONNECT_IRQ {irq_src irq_dest} {
+    #connect to global for this irq controller
+    global IRQ_COUNT_${irq_dest}
+    upvar 0 IRQ_COUNT_${irq_dest} IRQ_COUNT
+
     set dest_name ${irq_dest}_IRQ
     
     set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
     
-    set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+    if { ${IRQ_COUNT} >= $input_port_count} {
+	#expand the concact part of the controller
+	set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+    }
 
-    connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${input_port_count}]  
-    puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${input_port_count}"
+    connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${IRQ_COUNT}]  
+
+    puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${IRQ_COUNT}"
+
+    #expand the number of IRQs connected to this
+    set IRQ_COUNT [expr {$IRQ_COUNT + 1}]
+
+
 }
