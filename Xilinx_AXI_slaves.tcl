@@ -334,9 +334,7 @@ proc C2C_AURORA {params} {
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == aurora_64b66b }] ${C2C_PHY}        
     set_property CONFIG.C_INIT_CLK.VALUE_SRC PROPAGATED   [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_AURORA_LANES       {1}          [get_bd_cells ${C2C_PHY}]
-    #set_property CONFIG.C_AURORA_LANES       {2}          [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_LINE_RATE          {5}          [get_bd_cells ${C2C_PHY}]
-#    set_property CONFIG.C_LINE_RATE          {10}          [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_REFCLK_FREQUENCY   ${refclk_freq}    [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
     if {$primary_serdes == 1} {
@@ -446,10 +444,10 @@ proc AXI_C2C_MASTER {params} {
     #create the actual C2C master
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
     set_property CONFIG.C_AXI_STB_WIDTH     {4}     [get_bd_cells $device_name]
-    set_property CONFIG.C_AXI_DATA_WIDTH    {32}	[get_bd_cells $device_name]
-    set_property CONFIG.C_NUM_OF_IO         {58.0}	[get_bd_cells $device_name]
-    set_property CONFIG.C_INTERFACE_MODE    {1}	[get_bd_cells $device_name]
-    set_property CONFIG.C_INTERFACE_TYPE    {2}	[get_bd_cells $device_name]
+    set_property CONFIG.C_AXI_DATA_WIDTH    {32}    [get_bd_cells $device_name]
+    set_property CONFIG.C_NUM_OF_IO         {58.0}  [get_bd_cells $device_name]
+    set_property CONFIG.C_INTERFACE_MODE    {1}	    [get_bd_cells $device_name]
+    set_property CONFIG.C_INTERFACE_TYPE    {2}	    [get_bd_cells $device_name]
     set_property CONFIG.C_AURORA_WIDTH      {1.0}   [get_bd_cells $device_name]
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
     set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
@@ -478,9 +476,9 @@ proc AXI_C2C_MASTER {params} {
 
 
 
-    make_bd_pins_external       -name ${device_name}_aurora_pma_init_in [get_bd_pins ${device_name}/aurora_pma_init_in]
+    make_bd_pins_external       -name ${device_name}_aurora_pma_init_in          [get_bd_pins ${device_name}/aurora_pma_init_in]
     #expose debugging signals
-    make_bd_pins_external       -name ${device_name}_aurora_do_cc [get_bd_pins ${device_name}/aurora_do_cc]
+    make_bd_pins_external       -name ${device_name}_aurora_do_cc                [get_bd_pins ${device_name}/aurora_do_cc]
     make_bd_pins_external       -name ${device_name}_axi_c2c_config_error_out    [get_bd_pins ${device_name}/axi_c2c_config_error_out   ]
     make_bd_pins_external       -name ${device_name}_axi_c2c_link_status_out     [get_bd_pins ${device_name}/axi_c2c_link_status_out    ]
     make_bd_pins_external       -name ${device_name}_axi_c2c_multi_bit_error_out [get_bd_pins ${device_name}/axi_c2c_multi_bit_error_out]
@@ -489,9 +487,9 @@ proc AXI_C2C_MASTER {params} {
     
     C2C_AURORA [dict create device_name ${device_name} \
                     axi_control [dict get $params axi_control] \
-                     primary_serdes $primary_serdes \
-                     init_clk $init_clk \
-                     refclk_freq $refclk_freq]
+                    primary_serdes $primary_serdes \
+                    init_clk $init_clk \
+                    refclk_freq $refclk_freq]
     
 
     #connect interrupt
