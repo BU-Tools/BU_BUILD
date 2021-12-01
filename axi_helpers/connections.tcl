@@ -113,25 +113,26 @@ proc AXI_PL_DEV_CONNECT {params} {
 }
 
 
-proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn} {
+proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
-    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI]] {
-        if [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
-            connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-            connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
-        } elseif [llength [get_bd_pins -quiet $device_name/s_aclk]] {
-            connect_bd_net -quiet     [get_bd_pins $device_name/s_aclk]             [get_bd_pins $axi_clk]
-            connect_bd_net -quiet     [get_bd_pins $device_name/s_aresetn]          [get_bd_pins $axi_rstn]
+    set MS_TYPE [string toupper ${ms_type}]
+    if [llength [get_bd_intf_pins -quiet $device_name/${MS_TYPE}_AXI]] {
+        if [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_aclk]] {
+            connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
+            connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
+        } elseif [llength [get_bd_pins -quiet $device_name/${ms_type}_aclk]] {
+            connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_aclk]             [get_bd_pins $axi_clk]
+            connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_aresetn]          [get_bd_pins $axi_rstn]
         } else {
             connect_bd_net -quiet     [get_bd_pins $device_name/aclk]             [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
         }
-    } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+    } elseif [llength [get_bd_intf_pins -quiet $device_name/${ms_type}_axi_lite]] {
+        connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
+        connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
     } else {
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net -quiet     [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+        connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
+        connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
 }
 proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME} {
@@ -235,22 +236,23 @@ proc AXI_DEV_CONNECT {params} {
 }
 
 
-proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn} {
+proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"} } {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
-    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI_lite]] {
-	if [llength [get_bd_pins -quiet $device_name/s_axi_lite_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/s_axi_lite_aclk]        [get_bd_pins $axi_clk]
-            connect_bd_net -quiet     [get_bd_pins -quiet $device_name/s_aresetn]     [get_bd_pins $axi_rstn]
-        } elseif       [llength [get_bd_pins -quiet $device_name/s_axi_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+    set MS_TYPE [string toupper ${ms_type}]
+    if [llength [get_bd_intf_pins -quiet $device_name/${MS_TYPE}_AXI_lite]] {
+	if [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aclk]] {
+            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_lite_aclk]        [get_bd_pins $axi_clk]
+            connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_aresetn]     [get_bd_pins $axi_rstn]
+        } elseif       [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_aclk]] {
+            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
+            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
         } else {	           
-            connect_bd_net      [get_bd_pins $device_name/s_aclk]                 [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/s_aresetn]              [get_bd_pins $axi_rstn]
+            connect_bd_net      [get_bd_pins $device_name/${ms_type}_aclk]                 [get_bd_pins $axi_clk]
+            connect_bd_net      [get_bd_pins $device_name/${ms_type}_aresetn]              [get_bd_pins $axi_rstn]
         }
     } else {
-        connect_bd_net          [get_bd_pins $device_name/s_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net          [get_bd_pins $device_name/s_axi_aresetn]          [get_bd_pins $axi_rstn]
+        connect_bd_net          [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
+        connect_bd_net          [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
     }
 }
 

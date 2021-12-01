@@ -322,6 +322,8 @@ proc C2C_AURORA {params} {
     set_required_values $params {device_name axi_control}
     set_required_values $params {primary_serdes init_clk refclk_freq}
 
+    set_optional_values $params {speed 5}
+
     if {$primary_serdes == 1} {
 	puts "Creating ${device_name} as a primary serdes\n"
     } else {
@@ -336,7 +338,7 @@ proc C2C_AURORA {params} {
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == aurora_64b66b }] ${C2C_PHY}        
     set_property CONFIG.C_INIT_CLK.VALUE_SRC PROPAGATED   [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_AURORA_LANES       {1}          [get_bd_cells ${C2C_PHY}]
-    set_property CONFIG.C_LINE_RATE          {5}          [get_bd_cells ${C2C_PHY}]
+    set_property CONFIG.C_LINE_RATE          $speed          [get_bd_cells ${C2C_PHY}]
     set_property CONFIG.C_REFCLK_FREQUENCY   ${refclk_freq}    [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.interface_mode       {Streaming}  [get_bd_cells ${C2C_PHY}]
     if {$primary_serdes == 1} {
@@ -355,10 +357,10 @@ proc C2C_AURORA {params} {
     make_bd_intf_pins_external  -name ${C2C_PHY}_DRP                       [get_bd_intf_pins ${C2C_PHY}/GT0_DRP]
    
     #connect to interconnect (init clock)
-    set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
-    create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
-    set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
-    connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
+#    set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
+#    create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
+#    set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
+#    connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
 #    AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq
 #    AXI_SET_ADDR     ${C2C_PHY}    
 
@@ -379,6 +381,8 @@ proc C2C_AURORA {params} {
     make_bd_pins_external           -name ${C2C_PHY}_lane_up              [get_bd_pins ${C2C_PHY}/lane_up]
     make_bd_pins_external           -name ${C2C_PHY}_mmcm_not_locked_out  [get_bd_pins ${C2C_PHY}/mmcm_not_locked_out]       
     make_bd_pins_external           -name ${C2C_PHY}_link_reset_out       [get_bd_pins ${C2C_PHY}/link_reset_out]
+    make_bd_pins_external           -name ${C2C_PHY}_channel_up    [get_bd_pins ${C2C_PHY}/channel_up]
+
     if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {   
 	#7-series debug name
 	make_bd_intf_pins_external  -name ${C2C_PHY}_DEBUG                [get_bd_intf_pins ${C2C_PHY}/TRANSCEIVER_DEBUG0]
@@ -443,17 +447,31 @@ proc AXI_C2C_MASTER {params} {
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K} irq_port "."]
 
+    set_optional_values $params {c2c_master true}
+
     #create the actual C2C master
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
     set_property CONFIG.C_AXI_STB_WIDTH     {4}     [get_bd_cells $device_name]
     set_property CONFIG.C_AXI_DATA_WIDTH    {32}    [get_bd_cells $device_name]
     set_property CONFIG.C_NUM_OF_IO         {58.0}  [get_bd_cells $device_name]
-    set_property CONFIG.C_INTERFACE_MODE    {1}	    [get_bd_cells $device_name]
+    set_property CONFIG.C_INTERFACE_MODE    {0}	    [get_bd_cells $device_name]
     set_property CONFIG.C_INTERFACE_TYPE    {2}	    [get_bd_cells $device_name]
+    set_property CONFIG.C_MASTER_FPGA       [expr $c2c_master == true]	    [get_bd_cells $device_name]
+    set_property CONFIG.C_INCLUDE_AXILITE   [expr 1 + [expr $c2c_master == false]]	    [get_bd_cells $device_name]
     set_property CONFIG.C_AURORA_WIDTH      {1.0}   [get_bd_cells $device_name]
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
-    set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
+#    set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
+    set_property CONFIG.C_M_AXI_WUSER_WIDTH {0}     [get_bd_cells $device_name]
+    set_property CONFIG.C_M_AXI_ID_WIDTH {0}        [get_bd_cells $device_name]
 
+
+    #set type of clock connection based on if this is a c2c master or not
+    if {$c2c_master == true} {
+	set ms_type "s"
+    } else {
+	set ms_type "m"
+    }
+    
     #connect AXI interface interconnect (firewall will cut this and insert itself)
     if { [dict exists $params addr] } {
 	set AXI_params $params
@@ -463,7 +481,7 @@ proc AXI_C2C_MASTER {params} {
 	[AXI_DEV_CONNECT $AXI_params]    
 	BUILD_AXI_ADDR_TABLE ${device_name}_Mem0 ${device_name}_AXI_BRIDGE
     } else {
-	AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn
+	AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
     }
 
     if { [dict exists $params addr_lite] } {
@@ -473,7 +491,7 @@ proc AXI_C2C_MASTER {params} {
 	[AXI_LITE_DEV_CONNECT $AXILite_params]
 	BUILD_AXI_ADDR_TABLE ${device_name}_Reg ${device_name}_AXI_LITE_BRIDGE
     } else {
-	AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn
+	AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
     }
 
 
@@ -491,7 +509,8 @@ proc AXI_C2C_MASTER {params} {
                     axi_control [dict get $params axi_control] \
                     primary_serdes $primary_serdes \
                     init_clk $init_clk \
-                    refclk_freq $refclk_freq]
+                    refclk_freq $refclk_freq \
+		    speed [dict get $params speed]]
     
 
     #connect interrupt
