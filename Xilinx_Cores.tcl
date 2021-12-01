@@ -81,6 +81,8 @@ proc BuildILA {params} {
 	    }
 	}
     }
+    #probes start from 0, so add 1
+    set probe_count [expr $probe_count + 1]
 
     dict append property_list CONFIG.C_NUM_OF_PROBES $probe_count
     
@@ -113,6 +115,35 @@ proc XMLentry {name addr MSB LSB direction} {
     #end xml entry
     set node_line "$node_line />\n"
     return $node_line
+}
+
+proc VerilogIPSignalGrabber {direction MSB LSB name dict_inputs_name dict_outputs_name regs_xml_name reg_count_name} {
+    upvar $dict_inputs_name  dict_inputs
+    upvar $dict_outputs_name dict_outputs
+    upvar $regs_xml_name regs_xml
+    upvar $reg_count_name reg_count
+
+    #see if this is a vector or a signal
+    set type ""
+    if {$MSB == 0} {
+	set type "std_logic"			
+    } else {
+	set type "std_logic_vector($MSB downto 0)"
+    }
+    set bitsize [expr ($MSB - $LSB)+1]
+    #this is a common signal, so just use it
+    if {$direction == "output"} {
+	dict append dict_outputs $name [list $type $bitsize]
+	dict append regs_xml dict_outputs [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+	set reg_count [expr $reg_count + 1]
+	
+    } elseif {$direction == "input"} {
+	dict append dict_inputs  $name [list $type $bitsize]
+	dict append regs_xml dict_inputs [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+	set reg_count [expr $reg_count + 1]
+    } else {
+	error "Invalid in/out type $line"
+    }
 }
 
 proc BuildMGTCores {params} {
@@ -230,7 +261,6 @@ proc BuildMGTCores {params} {
     set regs_xml [dict create clocks_in "\n" clocks_out "\n" common_in "\n" common_out "\n" channel_in "\n" channel_out "\n"]
     foreach line $data {
 	if {[regexp { *(output|input) *wire *\[([0-9]*) *: *([0-9]*)\] *([a-zA-Z_0-9]*);} ${line}  full_match direction MSB LSB name] == 1} {
-
 	    #build a list of IOs for the vhdl component
 	    set component_line "$name : "
 	    if {$direction == "output"} {
@@ -243,49 +273,51 @@ proc BuildMGTCores {params} {
 
 	    #this has passed a regex for a verilog wire line, so we need to process it. 
 	    #unless it is a userdata signal, since we want to split that up by channel
-	    if { [string first "refclk" $name] >= 0 || [string first "qpll" $name] >= 0 } {
-		#see if this is a vector or a signal
-		set type ""
-		if {$MSB == 0} {
-		    set type "std_logic"			
-		} else {
-		    set type "std_logic_vector($MSB downto 0)"
-		}
-		set bitsize [expr ($MSB - $LSB)+1]
-		#this is a common signal, so just use it
-		if {$direction == "output"} {
-		    dict append clocks_out $name [list $type $bitsize]
-		    dict append regs_xml clocks_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
-		    set reg_count [expr $reg_count + 1]
-
-		} elseif {$direction == "input"} {
-		    dict append clocks_in  $name [list $type $bitsize]
-		    dict append regs_xml clocks_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
-		    set reg_count [expr $reg_count + 1]
-		} else {
-		    error "Invalid in/out type $line"
-		}
-	    } elseif { [string range $name 0 5] == "gtwiz_" && [string first "userdata" $name] == -1  } {
-		#see if this is a vector or a signal
-		set type ""
-		if {$MSB == 0} {
-		    set type "std_logic"			
-		} else {
-		    set type "std_logic_vector($MSB downto 0)"
-		}
-		set bitsize [expr ($MSB - $LSB)+1]
-		#this is a common signal, so just use it
-		if {$direction == "output"} {
-		    dict append common_out $name [list $type $bitsize]
-		    dict append regs_xml common_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
-		    set reg_count [expr $reg_count + 1]
-		} elseif {$direction == "input"} {
-		    dict append common_in  $name [list $type $bitsize]
-		    dict append regs_xml common_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
-		    set reg_count [expr $reg_count + 1]
-		} else {
-		    error "Invalid in/out type $line"
-		}
+	    if { [string first "refclk" $name] >= 0 || ([string first "qpll" $name] >= 0 && [string first "clk" $name] >= 0) } {
+		VerilogIPSignalGrabber $direction $MSB $LSB $name clocks_in clocks_out regs_xml reg_count
+#####		#see if this is a vector or a signal
+#####		set type ""
+#####		if {$MSB == 0} {
+#####		    set type "std_logic"			
+#####		} else {
+#####		    set type "std_logic_vector($MSB downto 0)"
+#####		}
+#####		set bitsize [expr ($MSB - $LSB)+1]
+#####		#this is a common signal, so just use it
+#####		if {$direction == "output"} {
+#####		    dict append clocks_out $name [list $type $bitsize]
+#####		    dict append regs_xml clocks_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+#####		    set reg_count [expr $reg_count + 1]
+#####
+#####		} elseif {$direction == "input"} {
+#####		    dict append clocks_in  $name [list $type $bitsize]
+#####		    dict append regs_xml clocks_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+#####		    set reg_count [expr $reg_count + 1]
+#####		} else {
+#####		    error "Invalid in/out type $line"
+#####		}
+	    } elseif { [string range $name 0 5] == "gtwiz_" && [string first "userdata" $name] == -1 || [string first "qpll" $name] >= 0 } {
+		VerilogIPSignalGrabber $direction $MSB $LSB $name common_in common_out regs_xml reg_count
+#####		#see if this is a vector or a signal
+#####		set type ""
+#####		if {$MSB == 0} {
+#####		    set type "std_logic"			
+#####		} else {
+#####		    set type "std_logic_vector($MSB downto 0)"
+#####		}
+#####		set bitsize [expr ($MSB - $LSB)+1]
+#####		#this is a common signal, so just use it
+#####		if {$direction == "output"} {
+#####		    dict append common_out $name [list $type $bitsize]
+#####		    dict append regs_xml common_out [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+#####		    set reg_count [expr $reg_count + 1]
+#####		} elseif {$direction == "input"} {
+#####		    dict append common_in  $name [list $type $bitsize]
+#####		    dict append regs_xml common_in [XMLentry $name $reg_count [expr $bitsize -1] 0 $direction]
+#####		    set reg_count [expr $reg_count + 1]
+#####		} else {
+#####		    error "Invalid in/out type $line"
+#####		}
 	    } else {
 		#this isn't a common signal, so we need to figure out how to split it up
 		if {$LSB != 0} {
@@ -408,7 +440,7 @@ proc BuildMGTCores {params} {
     }
     if { [info exists clocks_in]} {
 	foreach {key value} $clocks_in {
-	    if {[lindex $value 1] == 0} {
+	    if {[lindex $value 1] == 1} {
 		puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Clocks_In.$key"
 		set needsComma ","
 	    } else {
@@ -419,7 +451,7 @@ proc BuildMGTCores {params} {
     }
     if { [info exists clocks_out]} {
 	foreach {key value} $clocks_out {
-	    if {[lindex $value 1] == 0} {
+	    if {[lindex $value 1] == 1} {
 		puts -nonewline $wrapper_file  "$needsComma \n    $key (0) => Clocks_Out.$key"
 		set needsComma ","
 	    } else {
