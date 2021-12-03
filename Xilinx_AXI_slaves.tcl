@@ -436,6 +436,12 @@ proc C2C_AURORA {params} {
 #    AXI_GEN_DTSI ${C2C_PHY}
     
 #    endgroup      
+
+
+    #enable eyescans by default
+    global post_synth_commands
+    lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*CHANNEL_PRIM_INST\]" ${C2C_PHY}]
+    puts $post_synth_commands
 }
 
 proc AXI_C2C_MASTER {params} {
