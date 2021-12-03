@@ -354,7 +354,7 @@ proc C2C_AURORA {params} {
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
     #expose the DRP interface
-    make_bd_intf_pins_external  -name ${C2C_PHY}_DRP                       [get_bd_intf_pins ${C2C_PHY}/GT0_DRP]
+    make_bd_intf_pins_external  -name ${C2C_PHY}_DRP                       [get_bd_intf_pins ${C2C_PHY}/*DRP*]
    
     #connect to interconnect (init clock)
 #    set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
@@ -415,6 +415,8 @@ proc C2C_AURORA {params} {
     if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
 	#connect drp clock explicitly in 7-series
 	connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/drp_clk_in]
+	#output the qpll lock in 7series since it isn't in the debug group
+	make_bd_pins_external       -name ${C2C_PHY}_gt_qplllock                 [get_bd_pins ${C2C_PHY}/gt_qplllock]
     }
 
     if {$primary_serdes == 1} {
