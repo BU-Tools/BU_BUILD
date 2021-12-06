@@ -288,9 +288,9 @@ proc AXI_IP_UART {params} {
 
     # optional values
     # remote_slave -1 means don't generate a dtsi_ file
-#    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
     #force remote_slave to -1
-    dict set params remote_slave -1
+#    dict set params remote_slave -1
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
@@ -700,21 +700,25 @@ proc CONNECT_IRQ {irq_src irq_dest} {
     global IRQ_COUNT_${irq_dest}
     upvar 0 IRQ_COUNT_${irq_dest} IRQ_COUNT
 
-    set dest_name ${irq_dest}_IRQ
+    if [llength [get_bd_cells -quiet ${irq_dest}_IRQ]] {
+	set dest_name ${irq_dest}_IRQ
     
-    set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
+	set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
     
-    if { ${IRQ_COUNT} >= $input_port_count} {
-	#expand the concact part of the controller
-	set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+	if { ${IRQ_COUNT} >= $input_port_count} {
+	    #expand the concact part of the controller
+	    set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+	}
+
+	connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${IRQ_COUNT}]  
+
+	puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${IRQ_COUNT}"
+
+	#expand the number of IRQs connected to this
+	set IRQ_COUNT [expr {$IRQ_COUNT + 1}]
+    } else {
+	connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${irq_dest}]  
+	puts "Connecting IRQ: ${irq_src} to ${irq_dest}"
     }
-
-    connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${IRQ_COUNT}]  
-
-    puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${IRQ_COUNT}"
-
-    #expand the number of IRQs connected to this
-    set IRQ_COUNT [expr {$IRQ_COUNT + 1}]
-
 
 }
