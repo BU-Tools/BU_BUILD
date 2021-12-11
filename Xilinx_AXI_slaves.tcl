@@ -438,6 +438,12 @@ proc C2C_AURORA {params} {
 #    AXI_GEN_DTSI ${C2C_PHY}
     
 #    endgroup      
+
+
+    #enable eyescans by default
+    global post_synth_commands
+    lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*CHANNEL_PRIM_INST\]" ${C2C_PHY}]
+    puts $post_synth_commands
 }
 
 proc AXI_C2C_MASTER {params} {
@@ -694,21 +700,25 @@ proc CONNECT_IRQ {irq_src irq_dest} {
     global IRQ_COUNT_${irq_dest}
     upvar 0 IRQ_COUNT_${irq_dest} IRQ_COUNT
 
-    set dest_name ${irq_dest}_IRQ
+    if [llength [get_bd_cells -quiet ${irq_dest}_IRQ]] {
+	set dest_name ${irq_dest}_IRQ
     
-    set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
+	set input_port_count [get_property CONFIG.NUM_PORTS [get_bd_cells $dest_name]]
     
-    if { ${IRQ_COUNT} >= $input_port_count} {
-	#expand the concact part of the controller
-	set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+	if { ${IRQ_COUNT} >= $input_port_count} {
+	    #expand the concact part of the controller
+	    set_property CONFIG.NUM_PORTS [expr {$input_port_count + 1}] [get_bd_cells $dest_name]
+	}
+
+	connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${IRQ_COUNT}]  
+
+	puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${IRQ_COUNT}"
+
+	#expand the number of IRQs connected to this
+	set IRQ_COUNT [expr {$IRQ_COUNT + 1}]
+    } else {
+	connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${irq_dest}]  
+	puts "Connecting IRQ: ${irq_src} to ${irq_dest}"
     }
-
-    connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${dest_name}/In${IRQ_COUNT}]  
-
-    puts "Connecting IRQ: ${irq_src} to ${dest_name}/In${IRQ_COUNT}"
-
-    #expand the number of IRQs connected to this
-    set IRQ_COUNT [expr {$IRQ_COUNT + 1}]
-
 
 }
