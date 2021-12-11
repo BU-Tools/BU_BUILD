@@ -288,9 +288,9 @@ proc AXI_IP_UART {params} {
 
     # optional values
     # remote_slave -1 means don't generate a dtsi_ file
-#    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
     #force remote_slave to -1
-    dict set params remote_slave -1
+#    dict set params remote_slave -1
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
