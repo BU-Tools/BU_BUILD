@@ -102,7 +102,7 @@ proc AXI_IP_AXI_FW {params} {
     set_required_values $params {axi_fw_bus}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range -1} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 4k} remote_slave 0]
 
 
     # $axi_fw_bus is the master of the line we want to put a firewall in
@@ -252,7 +252,7 @@ proc AXI_IP_LOCAL_XVC {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range -1} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 4k} remote_slave 0]
 
     #Create a xilinx axi debug bridge
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == debug_bridge}] $device_name
@@ -442,7 +442,11 @@ proc C2C_AURORA {params} {
 
     #enable eyescans by default
     global post_synth_commands
-    lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*CHANNEL_PRIM_INST\]" ${C2C_PHY}]
+    if { [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] } {
+	lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*CHANNEL_PRIM_INST\]" ${C2C_PHY}]
+    } else {
+	lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*gtx_inst/gt.*\]" ${C2C_PHY}]
+    }
     puts $post_synth_commands
 }
 
@@ -668,7 +672,6 @@ proc AXI_IP_BRAM {params} {
 
 
 proc AXI_IP_IRQ_CTRL {params} {
-
     # required values
     set_required_values $params {device_name axi_control irq_dest}
 
@@ -687,11 +690,9 @@ proc AXI_IP_IRQ_CTRL {params} {
     [AXI_DEV_CONNECT $params]
 
     connect_bd_net [get_bd_pins ${device_name}/irq] [get_bd_pins ${irq_dest}]
-
     set IRQ_CONCAT ${device_name}_IRQ
     create_bd_cell -type ip -vlnv  [get_ipdefs -filter {NAME == xlconcat}] ${IRQ_CONCAT}
     connect_bd_net [get_bd_pins ${IRQ_CONCAT}/dout] [get_bd_pins ${device_name}/intr]
-
     puts "Added Xilinx Interrupt Controller AXI Slave: $device_name"
 }
 
@@ -720,5 +721,28 @@ proc CONNECT_IRQ {irq_src irq_dest} {
 	connect_bd_net [get_bd_pins ${irq_src}] [get_bd_pins ${irq_dest}]  
 	puts "Connecting IRQ: ${irq_src} to ${irq_dest}"
     }
+    puts "bar"
+}
 
+proc IP_SYS_RESET {params} {
+    # required values
+    set_required_values $params {device_name external_reset_n slowest_clk}
+
+    # optional values
+    set_optional_values $params {aux_reset "NULL"}
+
+    #createIP
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == proc_sys_reset}] $device_name
+
+    #connect external reset
+    set_property -dict [list CONFIG.C_AUX_RST_WIDTH {1} CONFIG.C_AUX_RESET_HIGH {0}] [get_bd_cells $device_name]
+    connect_bd_net [get_bd_pins ${external_reset_n}] [get_bd_pins ${device_name}/ext_reset_in]
+    #connect clock
+    connect_bd_net [get_bd_pins ${slowest_clk}] [get_bd_pins ${device_name}/slowest_sync_clk]
+
+    #aux_reset
+    if {${aux_reset} != "NULL"} {
+	set_property -dict [list CONFIG.C_AUX_RST_WIDTH {1} CONFIG.C_AUX_RESET_HIGH {1}] [get_bd_cells $device_name]
+	connect_bd_net [get_bd_pins ${aux_reset}] [get_bd_pins ${device_name}/aux_reset_in]
+    }
 }
