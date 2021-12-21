@@ -132,8 +132,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 }
 
 #function to create a DTSI chunk file for a full PL AXI slave.
-#proc AXI_DEV_UIO_DTSI_OVERLAY {device_name {dt_data $default_device_tree_additions}} {
-proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  [list dt_data $default_device_tree_additions]] {
+proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data $default_device_tree_additions]] {
     global dtsi_output_path
 
     global REMOTE_C2C
@@ -144,11 +143,19 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  [list dt_data $default_device_t
     set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
     set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
 
-    #make sure the output folder exists
-    file mkdir ${dtsi_output_path}
 
     #build dtsi file for this for later    
-    set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi" w+]
+    if { ${manual_load_dtsi} == 0} {
+	#make sure the output folder exists
+	file mkdir ${dtsi_output_path}
+	set dtsi_filename "${dtsi_output_path}/${device_name}.dtsi"
+    } else {
+	#make sure the output folder exists
+	file mkdir ${dtsi_output_path}/manual_load
+
+	set dtsi_filename "${dtsi_output_path}/manual_load/${device_name}.dtsi"
+    }
+    set dtsi_file [open ${dtsi_filename}  w+]
     
     set amba_path "amba_pl"
     

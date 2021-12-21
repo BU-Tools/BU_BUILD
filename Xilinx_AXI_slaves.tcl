@@ -288,9 +288,7 @@ proc AXI_IP_UART {params} {
 
     # optional values
     # remote_slave -1 means don't generate a dtsi_ file
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1]
-    #force remote_slave to -1
-#    dict set params remote_slave -1
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave -1 ]
 
     #Create a xilinx UART
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_uartlite }] $device_name
@@ -298,9 +296,6 @@ proc AXI_IP_UART {params} {
     set_property CONFIG.C_BAUDRATE $baud_rate [get_bd_cells $device_name]
 
     #connect to AXI, clk, and reset between slave and mastre
-#    [AXI_DEV_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range -1]
-    #make sure the UART isn't given a dtsi file
-#    dict set params remote_slave -1
     [AXI_DEV_CONNECT $params]
 
     
@@ -309,7 +304,6 @@ proc AXI_IP_UART {params} {
 
     #connect interrupt
     CONNECT_IRQ ${device_name}/interrupt ${irq_port}
-#    connect_bd_net [get_bd_pins ${device_name}/interrupt] [get_bd_pins ${irq_port}]
 
     
     puts "Added Xilinx UART AXI Slave: $device_name"
@@ -699,6 +693,10 @@ proc AXI_IP_IRQ_CTRL {params} {
 proc CONNECT_IRQ {irq_src irq_dest} {
     #connect to global for this irq controller
     global IRQ_COUNT_${irq_dest}
+    if { [info exists IRQ_COUNT_${irq_dest}] == 0 } {
+	set IRQ_COUNT_${irq_dest} 0	
+    }
+
     upvar 0 IRQ_COUNT_${irq_dest} IRQ_COUNT
 
     if [llength [get_bd_cells -quiet ${irq_dest}_IRQ]] {

@@ -19,7 +19,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32 remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32 remote_slave 0 manual_load_dtsi 0]
 
     #optional device tree additions
     set_optional_values $params [dict create dt_data $default_device_tree_additions]
@@ -106,7 +106,7 @@ proc AXI_PL_DEV_CONNECT {params} {
 
     #generate dtsi file for DTBO generation if the is a remote slave
     if {$remote_slave == 1} {
-        AXI_DEV_UIO_DTSI_OVERLAY ${device_name} $dt_data
+        AXI_DEV_UIO_DTSI_OVERLAY ${device_name} ${manual_load_dtsi} $dt_data
     }
     
 
@@ -190,7 +190,7 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
     endgroup
 
 }
-proc AXI_GEN_DTSI [list device_name [list remote_slave 0]  [list dt_data $default_device_tree_additions]] {
+proc AXI_GEN_DTSI [list device_name [list remote_slave 0] [list manual_load_dtsi 0]  [list dt_data $default_device_tree_additions]] {
 
     startgroup
     validate_bd_design -quiet
@@ -206,7 +206,7 @@ proc AXI_GEN_DTSI [list device_name [list remote_slave 0]  [list dt_data $defaul
         #this is now a legacy file, 
 	[AXI_DEV_UIO_DTSI_CHUNK ${device_name} $dt_data]
 	#Now we make dtsi overlay files to be loaded at boot-time
-        [AXI_DEV_UIO_DTSI_OVERLAY ${device_name} $dt_data]
+	AXI_DEV_UIO_DTSI_OVERLAY ${device_name} ${manual_load_dtsi} $dt_data
     }
     #else {
     #do not generate a file
@@ -225,14 +225,14 @@ proc AXI_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 force_mem 0]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 force_mem 0 manual_load_dtsi 0 ]
 
     #optional device tree additions
     set_optional_values $params [dict create dt_data $default_device_tree_additions]
 
     [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
     AXI_SET_ADDR $device_name $offset $range $force_mem
-    AXI_GEN_DTSI $device_name $remote_slave $dt_data
+    AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi $dt_data
 }
 
 
@@ -273,7 +273,7 @@ proc AXI_LITE_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 manual_load_dtsi 0]
 
     startgroup
 
@@ -289,7 +289,7 @@ proc AXI_LITE_DEV_CONNECT {params} {
 
 
     AXI_SET_ADDR $device_name $offset $range
-    AXI_GEN_DTSI $device_name $remote_slave
+    AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi
 
     validate_bd_design -quiet
 
@@ -316,7 +316,7 @@ proc AXI_CTL_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 manual_load_dtsi 0]
 
     startgroup
 
@@ -335,7 +335,7 @@ proc AXI_CTL_DEV_CONNECT {params} {
 
     
     AXI_SET_ADDR $device_name $offset $range
-    AXI_GEN_DTSI $device_name $remote_slave
+    AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi
 
     validate_bd_design -quiet
 
