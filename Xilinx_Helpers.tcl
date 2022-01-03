@@ -39,4 +39,6 @@ proc Generate_Global_package {} {
 
     puts $outfile "end package Global_PKG;"
     close $outfile
+    #load the new VHDL file
+    read_vhdl $filename
 }
