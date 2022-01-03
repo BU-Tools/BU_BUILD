@@ -73,6 +73,7 @@ proc BuildILA {params} {
 	}
 	dict for {key value} $probe_info {
 	    if {$key == "TYPE"} {
+                # type is 0: data & trigger, 1 data only, 2 trigger only
 		dict append property_list CONFIG.C_PROBE${probe}_TYPE $value
 	    } elseif {$key == "WIDTH"} {		
 		dict append property_list CONFIG.C_PROBE${probe}_WIDTH $value
