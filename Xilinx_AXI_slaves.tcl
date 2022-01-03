@@ -436,7 +436,10 @@ proc C2C_AURORA {params} {
 
     #enable eyescans by default
     global post_synth_commands
-    if { [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] } {
+    if { \
+	     [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] || \
+	     [expr [string first xcku [get_parts -of_objects [get_projects] ] ] >= 0 ] || \
+	     [expr [string first xcvu [get_parts -of_objects [get_projects] ] ] >= 0 ]} {
 	lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*CHANNEL_PRIM_INST\]" ${C2C_PHY}]
     } else {
 	lappend post_synth_commands [format "set_property ES_EYE_SCAN_EN True \[get_cells -hierarchical -regexp .*%s/.*gtx_inst/gt.*\]" ${C2C_PHY}]
