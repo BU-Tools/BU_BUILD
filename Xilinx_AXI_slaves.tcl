@@ -317,6 +317,7 @@ proc C2C_AURORA {params} {
     set_required_values $params {primary_serdes init_clk refclk_freq}
 
     set_optional_values $params {speed 5}
+    set_optional_values $params {singleend_refclk False}
 
     if {$primary_serdes == 1} {
 	puts "Creating ${device_name} as a primary serdes\n"
@@ -343,28 +344,24 @@ proc C2C_AURORA {params} {
     set_property CONFIG.SINGLEEND_INITCLK    {true}       [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.C_USE_CHIPSCOPE      {true}       [get_bd_cells ${C2C_PHY}]
     set_property CONFIG.drp_mode             {NATIVE}     [get_bd_cells ${C2C_PHY}]
-#    set_property CONFIG.drp_mode             {AXI4_LITE}  [get_bd_cells ${C2C_PHY}]
-#    set_property CONFIG.TransceiverControl   {false}      [get_bd_cells ${C2C_PHY}]  
     set_property CONFIG.TransceiverControl   {true}       [get_bd_cells ${C2C_PHY}]
    
+    set_property CONFIG.SINGLEEND_GTREFCLK   [expr {${singleend_refclk}} ] [get_bd_cells ${C2C_PHY}]
+
     #expose the DRP interface
     make_bd_intf_pins_external  -name ${C2C_PHY}_DRP                       [get_bd_intf_pins ${C2C_PHY}/*DRP*]
    
-    #connect to interconnect (init clock)
-#    set C2C_ARST     ${C2C_PHY}_AXI_LITE_RESET_INVERTER
-#    create_bd_cell   -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic }] ${C2C_ARST}
-#    set_property     -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not} CONFIG.LOGO_FILE {data/sym_notgate.png}] [get_bd_cells ${C2C_ARST}]
-#    connect_bd_net   [get_bd_pins ${C2C}/aurora_reset_pb] [get_bd_pins ${C2C_ARST}/Op1]
-#    AXI_CONNECT ${C2C_PHY} $axi_interconnect $init_clk ${C2C_ARST}/Res $axi_freq
-#    AXI_SET_ADDR     ${C2C_PHY}    
-
-
-    
     #expose the Aurora core signals to top    
     if {$primary_serdes == 1} {
 	#these are only if the serdes is the primary one
-	make_bd_intf_pins_external  -name ${C2C_PHY}_refclk               [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
-	make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out       [get_bd_pins ${C2C_PHY}/gt_refclk1_out]
+
+	if { [expr {${singleend_refclk}} ] } {
+	    make_bd_pins_external       -name ${C2C_PHY}_refclk               [get_bd_pins ${C2C_PHY}/REFCLK1_in]    
+	} else {
+	    make_bd_intf_pins_external  -name ${C2C_PHY}_refclk               [get_bd_intf_pins ${C2C_PHY}/GT_DIFF_REFCLK1]    
+            make_bd_pins_external       -name ${C2C_PHY}_gt_refclk1_out       [get_bd_pins [list ${C2C_PHY}/gt_refclk1_out ${C2C_PHY}/refclk1_in]]
+	}
+
     }								          
     make_bd_intf_pins_external      -name ${C2C_PHY}_Rx                   [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_RX]       
     make_bd_intf_pins_external      -name ${C2C_PHY}_Tx                   [get_bd_intf_pins ${C2C_PHY}/GT_SERIAL_TX]
@@ -419,7 +416,7 @@ proc C2C_AURORA {params} {
         connect_bd_net [get_bd_ports ${C2C_PHY}_CLK] [get_bd_pins ${C2C_PHY}/user_clk_out]	
     } else {
 	#connect up clocking resource to primary C2C_PHY
-	connect_bd_net [get_bd_pins     ${primary_serdes}/gt_refclk1_out]            [get_bd_pins ${C2C_PHY}/refclk1_in]
+	connect_bd_net [get_bd_pins     [get_bd_pins [list ${primary_serdes}/gt_refclk1_out ${primary_serdes}/refclk1_in]] ]            [get_bd_pins ${C2C_PHY}/refclk1_in]
 	if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
 	    #only in 7-series
   	    connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
@@ -427,12 +424,6 @@ proc C2C_AURORA {params} {
 	}
 	connect_bd_net [get_bd_pins     ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
     }
-
-    #    validate_bd_design
-#    AXI_GEN_DTSI ${C2C_PHY}
-    
-#    endgroup      
-
 
     #enable eyescans by default
     global post_synth_commands
@@ -457,6 +448,8 @@ proc AXI_C2C_MASTER {params} {
     set_optional_values $params [dict create addr {offset -1 range 64K} addr_lite {offset -1 range 64K} irq_port "."]
 
     set_optional_values $params {c2c_master true}
+    set_optional_values $params {singleend_refclk False}
+    set_optional_values $params {speed 5}
 
     #create the actual C2C master
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
@@ -519,7 +512,9 @@ proc AXI_C2C_MASTER {params} {
                     primary_serdes $primary_serdes \
                     init_clk $init_clk \
                     refclk_freq $refclk_freq \
-		    speed [dict get $params speed]]
+		    speed $speed \
+		    singleend_refclk $singleend_refclk \
+		   ]
     
 
     #connect interrupt
