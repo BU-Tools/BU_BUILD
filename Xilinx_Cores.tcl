@@ -16,10 +16,19 @@ proc BuildCore {device_name core_type} {
     global apollo_root_path
     global autogen_path
 
+    set output_path ${apollo_root_path}/${autogen_path}/cores/    
+    
+    #####################################
+    #delete IP if it exists
+    #####################################    
+    if { [file exists ${output_path}/${device_name}/${device_name}.xci] } {
+	file delete -force ${output_path}/${device_name}
+    }
+
     #####################################
     #create IP            
     #####################################    
-    set output_path ${apollo_root_path}/${autogen_path}/cores/    
+
     file mkdir ${output_path}
 
     #delete if it already exists
@@ -161,7 +170,7 @@ proc BuildMGTCores {params} {
     set_required_values $params {GT_TYPE}
    
 
-    set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE LOCATE_RESET_CONTROLLER CORE}]
+    set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE LOCATE_RESET_CONTROLLER CORE LOCATE_COMMON EXAMPLE_DESIGN}]
 
 
     dict create GT_TYPEs {}
@@ -185,6 +194,7 @@ proc BuildMGTCores {params} {
     dict append property_list CONFIG.LOCATE_TX_USER_CLOCKING $LOCATE_TX_USER_CLOCKING
     dict append property_list CONFIG.LOCATE_RX_USER_CLOCKING $LOCATE_RX_USER_CLOCKING
     dict append property_list CONFIG.LOCATE_RESET_CONTROLLER $LOCATE_RESET_CONTROLLER
+    dict append property_list CONFIG.LOCATE_COMMON $LOCATE_COMMON
 
     #add optional ports to the device
     set optional_ports [list cplllock_out eyescanreset_in eyescantrigger_in eyescandataerror_out dmonitorout_out pcsrsvdin_in rxbufstatus_out rxprbserr_out rxresetdone_out rxbufreset_in rxcdrhold_in rxdfelpmreset_in rxlpmen_in rxpcsreset_in rxpmareset_in rxprbscntreset_in rxprbssel_in rxrate_in txbufstatus_out txresetdone_out txinhibit_in txpcsreset_in txpmareset_in txpolarity_in txpostcursor_in txprbsforceerr_in txprecursor_in txprbssel_in txdiffctrl_in drpaddr_in drpclk_in drpdi_in drpen_in drprst_in drpwe_in drpdo_out drprdy_out rxctrl2_out txctrl2_in loopback_in]
@@ -462,7 +472,7 @@ proc BuildMGTCores {params} {
 	}
     }
     foreach {key value} $channel_in {
-	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector'("
+	puts $wrapper_file  "$needsComma \n    $key => std_logic_vector'( \"\" &"
 	for {set i $tx_count} {$i > 1} {incr i -1} {
 	    puts $wrapper_file "             Channel_In($i).$key  &"
 	}
