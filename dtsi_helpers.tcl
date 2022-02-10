@@ -159,6 +159,15 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     
     set amba_path "amba_pl"
     
+    set is64bit false
+    #determine if this is 32 or 64 bit encoding
+    if { [expr [string length ${addr}] > 8 ] || 
+	 [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
+	 [info exists REMOTE_C2C_64] 
+     } {
+	set is64bit true
+    }
+
     puts ${dtsi_file} "/dts-v1/;"
     puts ${dtsi_file} "/plugin/;"
     puts ${dtsi_file} " "
@@ -166,16 +175,18 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     puts ${dtsi_file} "	fragment@0 {"
     puts ${dtsi_file} "	    target = <&${amba_path}>;"
     puts ${dtsi_file} "	    __overlay__ {"
-    puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
-#    puts ${dtsi_file} "        compatible = \"generic-uio\";"
-    if { [expr [string length ${addr}] > 8 ] || 
-	 [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
-	 [info exists REMOTE_C2C_64] 
-     } {
-
+    if { $is64bit } {
 	puts ${dtsi_file} "        #address-cells = <2>;"
 	puts ${dtsi_file} "        #size-cells = <2>;"
-	
+    } else {
+	puts ${dtsi_file} "        #address-cells = <1>;"
+	puts ${dtsi_file} "        #size-cells = <1>;"
+    }
+    
+
+    puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
+    if { $is64bit } {
+	#figure out how to write 64 bit address in 32bit word chunks
 	set addr_MSB  [string range ${addr} 8 [string length ${addr}]]
 	if { [expr [string length $addr_MSB] == 0 ] } {
 	    set addr_MSB "0"
@@ -190,14 +201,12 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
 	
 	puts ${dtsi_file} "        reg = <0x${addr_MSB} 0x${addr_LSB} 0x${range_MSB} 0x${range_LSB}>;"
     } else {
-	puts ${dtsi_file} "      	 #address-cells = <1>;"
-	puts ${dtsi_file} "        #size-cells = <1>;"
 	puts ${dtsi_file} "        reg = <0x${addr} 0x${addr_range}>;"
     }
-#    puts ${dtsi_file} "        label = \"$device_name\";"
-#    puts ${dtsi_file} "        linux,uio-name = \"$device_name\";"
+
     set map {}
     lappend map {$device_name} $device_name
+    #load the dt_data info (by default this is enables generic UIO, but some things like i2c and interrupts override this)
     puts  ${dtsi_file} [string map $map  ${dt_data}]
     puts ${dtsi_file} "      };"
     puts ${dtsi_file} "    };"
