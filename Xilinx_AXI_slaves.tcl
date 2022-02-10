@@ -202,6 +202,7 @@ proc AXI_IP_I2C {params} {
 
     # required values
     set_required_values $params {device_name axi_control}
+    set_required_values $params {irq_port}
 
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
@@ -217,6 +218,9 @@ proc AXI_IP_I2C {params} {
     make_bd_pins_external  -name ${device_name}_sda_t [get_bd_pins $device_name/sda_t]
     #connect to AXI, clk, and reset between slave and mastre
     [AXI_DEV_CONNECT $params]
+
+    #connect interrupt
+    CONNECT_IRQ ${device_name}/iic2intc_irpt ${irq_port}
 
     puts "Added Xilinx I2C AXI Slave: $device_name"
 }
