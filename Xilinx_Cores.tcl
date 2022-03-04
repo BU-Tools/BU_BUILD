@@ -617,3 +617,21 @@ proc BuildClockWizard {params} {
     synth_ip [get_ips ${device_name}]
     
 }
+
+
+proc Build_iBERT {params} {
+    global build_name
+    global apollo_root_path
+    global autogen_path
+
+    set_required_values $params {device_name}
+    set_required_values $params {links}
+
+    #build the core
+    BuildCore $device_name in_system_ibert
+
+   #links
+    set_property CONFIG.C_GTS_USED ${links} [get_ips ${device_name}]
+
+    #CONFIG.C_ENABLE_INPUT_PORTS {false}] [get_ips in_system_ibert_0]
+}
