@@ -746,3 +746,34 @@ proc IP_SYS_RESET {params} {
 	connect_bd_net [get_bd_pins ${aux_reset}] [get_bd_pins ${device_name}/aux_reset_in]
     }
 }
+
+proc AXI_IP_CDMA {params} {
+    # required values
+    set_required_values $params {device_name axi_control irq_port zynq_axi zynq_clk}
+
+    # optional values
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+
+    #createIP
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_cdma}] $device_name
+
+    set_property CONFIG.C_M_AXI_MAX_BURST_LEN {256}  [get_bd_cells $device_name]
+    set_property CONFIG.C_INCLUDE_SF {1}             [get_bd_cells $device_name]
+    set_property CONFIG.C_INCLUDE_SG {0}             [get_bd_cells $device_name]
+
+    #connect up the master connection
+    set CDMAMaster "$device_name/M_AXI"
+    set CDMAClk    "$device_name/m_axi_aclk"
+    set CDMARstn   "$device_name/m_axi_rstn"
+    connect_bd_intf_net [get_bd_intf_pins $zynq_axi] -boundary_type upper [get_bd_intf_pins $CDMAMaster]
+    connect_bd_net -quiet [get_bd_pins $CDMAClk] [get_bd_pins $zynq_clk]
+    connect_bd_net -quiet [get_bd_pins $CDMAClk] [get_bd_pins $axi_clk]
+
+    
+    #connect up AXI_LITE interfacee
+    AXI_LITE_DEV_CONNECT $params
+
+    #connect interrupt
+    CONNECT_IRQ ${device_name}/cdma_introut ${irq_port}
+
+}

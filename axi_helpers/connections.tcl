@@ -141,8 +141,10 @@ proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME} {
         connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
         connect_bd_intf_net [get_bd_intf_pins $device_name/s_axi_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
-    } else {
+    } elseif [llength [get_bd_intf_pins -quiet $device_name/*AXI*LITE*]] {
         connect_bd_intf_net [get_bd_intf_pins $device_name/*AXI*LITE*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    } else {
+	connect_bd_intf_net [get_bd_intf_pins $device_name/S*AXI*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     }
 }
 proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0}} {
@@ -243,6 +245,7 @@ proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"} } {
 	if [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aclk]] {
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_lite_aclk]        [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_aresetn]     [get_bd_pins $axi_rstn]
+	    connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aresetn]     [get_bd_pins $axi_rstn]
         } elseif       [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_aclk]] {
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
