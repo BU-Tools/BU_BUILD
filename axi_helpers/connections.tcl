@@ -24,6 +24,11 @@ proc AXI_PL_DEV_CONNECT {params} {
     #optional device tree additions
     set_optional_values $params [dict create dt_data $default_device_tree_additions]
 
+    # optionally add a base address to the offset
+    if {[info exists axi_base]} {
+         set offset [expr $offset + $axi_base]
+    }
+
     #create axi port names
     set AXIS_PORT_NAME $device_name
     append AXI_PORT_NAME "_AXIS"    
@@ -230,6 +235,11 @@ proc AXI_DEV_CONNECT {params} {
     #optional device tree additions
     set_optional_values $params [dict create dt_data $default_device_tree_additions]
 
+    # optionally add a base address to the offset
+    if {[info exists axi_base]} {
+         set offset [expr $offset + $axi_base]
+    }
+
     [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
     AXI_SET_ADDR $device_name $offset $range $force_mem
     AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi $dt_data
@@ -275,6 +285,11 @@ proc AXI_LITE_DEV_CONNECT {params} {
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 manual_load_dtsi 0]
 
+    # optionally add a base address to the offset
+    if {[info exists axi_base]} {
+         set offset [expr $offset + $axi_base]
+    }
+
     startgroup
 
     #Create a new master port for this slave
@@ -317,6 +332,11 @@ proc AXI_CTL_DEV_CONNECT {params} {
 
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE remote_slave 0 manual_load_dtsi 0]
+
+    # optionally add a base address to the offset
+    if {[info exists axi_base]} {
+         set offset [expr $offset + $axi_base]
+    }
 
     startgroup
 
@@ -372,6 +392,10 @@ proc BUILD_AXI_DATA_WIDTH {params} {
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
 
+    # optionally add a base address to the offset
+    if {[info exists axi_base]} {
+         set offset [expr $offset + $axi_base]
+    }
 
     #create the width converter
     create_bd_cell -type ip -vlnv [get_ipdefs -all -filter {NAME == axi_dwidth_converter && UPGRADE_VERSIONS == "" }] $device_name
