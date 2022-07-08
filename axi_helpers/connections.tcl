@@ -38,7 +38,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     startgroup
     
     #Create a new master port for this slave
-    ADD_MASTER_TO_INTERCONNECT $axi_interconnect
+    ADD_MASTER_TO_INTERCONNECT [dict create interconnect $axi_interconnect]
 
 
     make_bd_intf_pins_external -name ${AXIS_PORT_NAME} [get_bd_intf_pins  $AXIM_PORT_NAME]
@@ -128,16 +128,20 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
         } elseif [llength [get_bd_pins -quiet $device_name/${ms_type}_aclk]] {
             connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_aclk]             [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_aresetn]          [get_bd_pins $axi_rstn]
-        } else {
+        } elseif [llength [get_bd_pins -quiet $device_name/aclk]] {
             connect_bd_net -quiet     [get_bd_pins $device_name/aclk]             [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
-        }
+        } else {
+	    connect_bd_net -quiet     [get_bd_pins $device_name/saxi*aclk]             [get_bd_pins $axi_clk]
+	}
     } elseif [llength [get_bd_intf_pins -quiet $device_name/${ms_type}_axi_lite]] {
         connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
-    } else {
+    } elseif [llength [get_bd_pins $device_name/${ms_type}_axi_aclk] ] {
         connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
         connect_bd_net -quiet     [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
+    } else {
+	connect_bd_net -quiet     [get_bd_pins $device_name/saxi*aclk]             [get_bd_pins $axi_clk]
     }
 }
 proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME} {
@@ -146,8 +150,10 @@ proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME} {
         connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     } elseif [llength [get_bd_intf_pins -quiet $device_name/s_axi_lite]] {
         connect_bd_intf_net [get_bd_intf_pins $device_name/s_axi_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
-    } else {
+    } elseif [llength [get_bd_intf_pins -quiet $device_name/*AXI*LITE*]] {
         connect_bd_intf_net [get_bd_intf_pins $device_name/*AXI*LITE*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    } else {
+	connect_bd_intf_net [get_bd_intf_pins $device_name/S*AXI*] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     }
 }
 proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_offset -1} {addr_range 64K} {remote_slave 0}} {
@@ -155,7 +161,7 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     startgroup
 
     #Create a new master port for this slave
-    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    ADD_MASTER_TO_INTERCONNECT [dict create interconnect $axi_interconnect]
     
     #connect the requested clock to the AXI interconnect clock port
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
@@ -253,6 +259,7 @@ proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"} } {
 	if [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aclk]] {
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_lite_aclk]        [get_bd_pins $axi_clk]
             connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_aresetn]     [get_bd_pins $axi_rstn]
+	    connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aresetn]     [get_bd_pins $axi_rstn]
         } elseif       [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_aclk]] {
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
             connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
@@ -293,7 +300,7 @@ proc AXI_LITE_DEV_CONNECT {params} {
     startgroup
 
     #Create a new master port for this slave
-    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    ADD_MASTER_TO_INTERCONNECT [dict create interconnect $axi_interconnect]
 
     #connect the requested clock to the AXI interconnect clock port 
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]
@@ -341,7 +348,7 @@ proc AXI_CTL_DEV_CONNECT {params} {
     startgroup
 
     #Create a new master port for this slave
-    [ADD_MASTER_TO_INTERCONNECT $axi_interconnect]
+    ADD_MASTER_TO_INTERCONNECT [dict create interconnect $axi_interconnect]
 
     #connect the requested clock to the AXI interconnect clock port 
     connect_bd_net [get_bd_pins $axi_clk]   [get_bd_pins ${AXIM_CLK_NAME}]

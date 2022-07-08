@@ -27,11 +27,11 @@ proc set_required_values {params required_params {split_dict True}} {
             set val [dict get $params $key]
             if {$split_dict && [is_dict $val]} {
                 # handle dictionary arguments
-#                puts [dict size $val]
+                #puts [dict size $val]
                 foreach subkey [dict keys $val] {
                     upvar 1 $subkey x ;# tie the calling value to variable x
                     set x [subst [dict get $val $subkey]]
-#		    puts $x
+		    #puts $x
                 }
             } else {
                 # handle non-dictionary arguments
