@@ -13,8 +13,11 @@ proc huddle_to_bd {huddle parent} {
                 if { 0 != [string compare "command" $pairkey]} {
                     dict set pairs $pairkey [subst [huddle gets $tcl_call_huddle $pairkey]]
                 }}
+	    puts "\n\n\n"
+	    puts "================================================================================"
             puts "Executing command from YAML: $command \[dict create $pairs\]"
             eval $command {$pairs}
+	    
         }
         if { 0 == [string compare "dict" [huddle type [huddle get $huddle $key]]]} {
             huddle_to_bd [huddle get $huddle $key] $key

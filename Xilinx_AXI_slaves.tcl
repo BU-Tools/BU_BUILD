@@ -108,18 +108,39 @@ proc AXI_IP_AXI_FW {params} {
     # $axi_fw_bus is the master of the line we want to put a firewall in
     # Get the slave that the master is currently connected to. 
     set get_slave_cmd "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_pins ${axi_fw_bus} \]\] -filter {MODE == Slave}"
+    set get_slave_cmd_fallback "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_ports ${axi_fw_bus} \]\] -filter {MODE == Slave}"
     set get_master_cmd "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_pins ${axi_fw_bus} \]\] -filter {MODE == Master}"
+    set get_master_cmd_fallback "get_bd_intf_ports -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_ports ${axi_fw_bus} \]\]"
+
     set slave_interface [eval ${get_slave_cmd}]
+    if { [llength $slave_interface] == 0} {
+	#Didn't find any results, it is possible this is due to vivado thining this is a port, not a pin
+	#retry with port (fallback query)
+	set slave_interface [eval ${get_slave_cmd_fallback}]
+    }
     set master_interface [eval ${get_master_cmd}]
+    if { [llength $master_interface] == 0} {
+	#Didn't find any results, it is possible this is due to vivado thining this is a port, not a pin
+	#retry with port (fallback query)
+	set master_interface [eval ${get_master_cmd_fallback}]
+    }
+
+    puts "Slave interface: ${slave_interface}"
+    puts "Master interface: ${master_interface}"
     
     #delete the net connection
-    delete_bd_objs [get_bd_intf_nets -of_objects [get_bd_intf_pins ${axi_fw_bus}]]
+    if { [llength [get_bd_intf_nets -of_objects [get_bd_intf_pins ${axi_fw_bus}]]] != 0 } {
+	delete_bd_objs [get_bd_intf_nets -of_objects [get_bd_intf_pins ${axi_fw_bus}]]
+    } else {
+	delete_bd_objs [get_bd_intf_nets -of_objects [get_bd_intf_ports ${axi_fw_bus}]]
+    }
     
     #create the AXI FW IP
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_firewall }] ${device_name}
     
     #connect the master to the new slave on the AXI FW
-    connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $master_interface]
+    #    connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper [get_bd_intf_pins $master_interface]
+    connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper $master_interface
     #connect the AXI fw to the slave
     connect_bd_intf_net ${slave_interface} -boundary_type upper [get_bd_intf_pins $device_name/M_AXI]
     

@@ -68,8 +68,10 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 
     BUILD_AXI_ADDR_TABLE ${device_name}
 
-    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
-    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+#    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+#    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
 
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
@@ -140,8 +142,8 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
 
     BUILD_AXI_ADDR_TABLE ${device_name}
 
-    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
-    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
+    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
 
 
     #build dtsi file for this for later    

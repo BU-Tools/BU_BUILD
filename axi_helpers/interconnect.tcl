@@ -21,22 +21,32 @@ proc AXI_PL_MASTER_PORT {params} {
     # optional values
     set_optional_values $params [dict create type AXI4LITE addr_width 32 data_width 32]
 
+
+    set axi_clk_inst [get_bd_ports -q $axi_clk]
+    if { [llength $axi_clk_inst] == 0 } {
+	set axi_clk_inst [get_bd_pins -q $axi_clk]
+    }
+    puts ${axi_clk}
+    puts ${axi_clk_inst}
     
     create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0  ${name}
-    set_property CONFIG.DATA_WIDTH ${data_width} [get_bd_intf_ports ${name}]
-    set_property CONFIG.ADDR_WIDTH ${addr_width} [get_bd_intf_ports ${name}]
+    set axi_port [get_bd_intf_ports ${name}]
+    puts ${axi_port}
+
+    set_property CONFIG.DATA_WIDTH ${data_width} $axi_port
+    set_property CONFIG.ADDR_WIDTH ${addr_width} $axi_port
     
     #create clk and reset (-q to skip error if it already exists)
     create_bd_port -q -dir I -type clk $axi_clk
     create_bd_port -q -dir I -type rst $axi_rstn
 
     #setup clk/reset parameters
-    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_intf_ports $name]
-    set_property CONFIG.FREQ_HZ          $axi_freq  [get_bd_ports $axi_clk]
-    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  [get_bd_ports $axi_clk]
+    set_property CONFIG.FREQ_HZ          $axi_freq  $axi_port
+    set_property CONFIG.FREQ_HZ          $axi_freq  $axi_clk_inst
+    set_property CONFIG.ASSOCIATED_RESET $axi_rstn  $axi_clk_inst
 
     #set bus properties
-    set_property CONFIG.PROTOCOL ${type} [get_bd_intf_ports ${name}]
+    set_property CONFIG.PROTOCOL ${type} $axi_port
 }
 
 #================================================================================
