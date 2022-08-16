@@ -102,6 +102,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     }
     endgroup
     validate_bd_design -quiet
+
     #now that the design is validated, generate the DTSI_CHUNK file
     if {$offset == -1} {
 	AXI_DEV_UIO_DTSI_CHUNK $device_name $dt_data
@@ -113,7 +114,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     if {$remote_slave == 1} {
         AXI_DEV_UIO_DTSI_OVERLAY ${device_name} ${manual_load_dtsi} $dt_data
     }
-    
+
 
 }
 
