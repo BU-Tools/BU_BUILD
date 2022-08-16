@@ -96,8 +96,8 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 	     [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
 	     [info exists REMOTE_C2C_64] 
 	 } {
-	    puts $dtsi_file "      		#address-cells = <2>;"
-	    puts $dtsi_file "                   #size-cells = <2>;"
+#	    puts $dtsi_file "      		#address-cells = <2>;"
+#	    puts $dtsi_file "                   #size-cells = <2>;"
 
 	    set addr_MSB  [string range ${addr} 8 [string length ${addr}]]
 	    if { [expr [string length $addr_MSB] == 0 ] } {
@@ -113,8 +113,8 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 
 	    puts $dtsi_file "      reg = <0x${addr_MSB} 0x${addr_LSB} 0x${range_MSB} 0x${range_LSB}>;"
 	} else {
-	    puts $dtsi_file "      		#address-cells = <1>;"
-	    puts $dtsi_file "                   #size-cells = <1>;"
+#	    puts $dtsi_file "      		#address-cells = <1>;"
+#	    puts $dtsi_file "                   #size-cells = <1>;"
 	    puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
 	}
 	#add additional parameters
@@ -178,11 +178,11 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     puts ${dtsi_file} "	    target = <&${amba_path}>;"
     puts ${dtsi_file} "	    __overlay__ {"
     if { $is64bit } {
-	puts ${dtsi_file} "        #address-cells = <2>;"
-	puts ${dtsi_file} "        #size-cells = <2>;"
+#	puts ${dtsi_file} "        #address-cells = <2>;"
+#	puts ${dtsi_file} "        #size-cells = <2>;"
     } else {
-	puts ${dtsi_file} "        #address-cells = <1>;"
-	puts ${dtsi_file} "        #size-cells = <1>;"
+#	puts ${dtsi_file} "        #address-cells = <1>;"
+#	puts ${dtsi_file} "        #size-cells = <1>;"
     }
     
 
