@@ -13,15 +13,8 @@ source ${BD_PATH}/Xilinx_Cores.tcl
 #                            Channel_type: [list] One entry for each kind of channel in the HAL
 #                              ip_cores: [list] the ipcores generated for this channel type
 #                              core_channel_count: [list] number of channels in this IP core
-#                              registers: [dict]
-#                                common,channel,userdata,clocks_input/output: [lists of dictionaries]
-#                                  list of dict for info on each register
-#                                channel_count: (temp count of channels in current version of this register dict)
-#                                
-#                                [list of lists of dicts] a list of input/output records
-#                                  for this IP that each contain a list of dictionaries that have the
-#                                  register infos
-#                                
+#                              mgt_info: [dict] (from Xilinx_Cores.tcl, BuildMGTCores)
+
 proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
     global build_name
     global apollo_root_path
@@ -41,39 +34,33 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 
     set channels [dict get ${quad_properties} "CHANNELS"]
     #find the number of channel templates used
-    set channel_template_map [dict create]; #map of channels to templates
     set template_channel_map [dict create]; #map of tempates to channels	
     foreach channelID [dict keys ${channels}] {
-	set channel [dict get ${channels} ${channelID}]
+	set current_channel [dict get ${channels} ${channelID}]
 	#the default is that this channel is manually configured
 	#and each manual configuration is considered unique even
 	#if they are the same in the end.  To allow the system to
 	#treat them as the same, use a template
-	set template ${channelID}
-	if [dict exists ${channel} "TEMPLATE"] {
+	set template_name ${channelID}
+	if [dict exists ${current_channel} "TEMPLATE"] {
 	    #This channel references a template, so let's use that
-	    set template [dict get ${channel} "TEMPLATE"]
+	    set template_name [dict get ${current_channel} "TEMPLATE"]
 	}
-	#set this channel's template
-	set channel_template_map [dict set \
-				      channel_template_map \
-				      ${channelID} ${template}]
+	
 	
 	
 	#update the map that counts number of templates used
-	if [dict exists ${template_channel_map} ${template}] {
-	    set existingEntry [dict get ${template_channel_map} \
-				   ${template}]
-	    set existingEntry [lappend existingEntry \
-				   ${channelID}]
+	if [dict exists ${template_channel_map} ${template_name}] {
+	    set existing_template_list [dict get ${template_channel_map} ${template_name}]
+	    set existing_template_list [lappend existingTemplateList ${channelID}]
 	    set template_channel_map [dict set \
 					  template_channel_map \
-					  ${template} ${existingEntry}]
+					  ${template_name} ${existing_template_list}]
 	} else {
-	    set newEntry [list ${channelID}]
+	    set new_template_list [list ${channelID}]
 	    set template_channel_map [dict set \
 					  template_channel_map \
-					  ${template} ${newEntry}]
+					  ${template_name} ${new_template_list}]
 	}
 	
     }
@@ -86,15 +73,13 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	
 	#create the parameters set for these channels
 	set parameters [dict create "device_name" ${ip_name}]
+
 	if [dict exists ${quad_channel_templates} ${channel_type}] {
 	    # this is based on a template
 	    set parameters [dict merge \
 				$parameters \
 				[dict get ${quad_channel_templates} ${channel_type}]]
 	}
-
-
-
 
 	#setup the channels with this configuration
 	set channel_of_type [dict get ${template_channel_map} ${channel_type}]
@@ -154,6 +139,8 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    puts "Template ${channel_type} doesn't exists, creating it\n\n\n\n"
 	    set parameters [dict set parameters "interface" [dict create "base_name" $channel_type]]
 	    #Build the MGT core
+	    puts "BuildMGTCores $parameters"
+	    abort
 	    set results [BuildMGTCores $parameters]
 	    #create an entry in the ip_template_info dictionary for this template.
 	    #it will include these registers that were created (as this is the first for $template)
@@ -181,7 +168,7 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
     for {set quad_common_count 1} {$quad_common_count <= $common_count} {incr quad_common_count} {
 	#add each channels module
 	puts $out_file [format \
-			    "  <node id=\"%s\"   address=\"0x%08X\" fw_info=\"type=array\" module=\"file://%s\"/>\n" \
+			    "  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\" module=\"file://%s\"/>\n" \
 			    "COMMON_${quad_common_count}" \
 			    $address \
 			    "${type_name}/${common_xml_file}.xml" ]
@@ -200,7 +187,7 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
 	#add each channels module
 	for {set iChan 0} {$iChan <= $quad_channel_count} {incr iChan} {
 	    puts $out_file [format \
-				"  <node id=\"%s\"   address=\"0x%08X\" fw_info=\"type=array\" module=\"file://%s\"/>\n" \
+				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\" module=\"file://%s\"/>\n" \
 				"CHANNEL_${iChan}" \
 				$address \
 				"${type_name}/${channel_xml_file}.xml" ]	    
@@ -245,13 +232,15 @@ proc ConnectUpMGTReg {outfile channel_type record_type index register} {
 proc ConnectUpMGTRegMap {outfile channel_type record_types ip_registers start_index end_index} {
     #loop over all of the dictionaries in the ip_registers dictionary
     foreach record_type $record_types {
-	set type_registers [dict get $ip_registers $record_type]
+	if { [dict exists $ip_registers $record_type] } {
+	    set type_registers [dict get $ip_registers $record_type]
 
-	#Loop over index
-	for {set loop_index $start_index} {$loop_index <= $end_index} {incr loop_index} {
-	    foreach register $type_registers {
-		ConnectUpMGTReg $outfile $channel_type $record_type $loop_index $register
-	    }	
+	    #Loop over index
+	    for {set loop_index $start_index} {$loop_index <= $end_index} {incr loop_index} {
+		foreach register $type_registers {
+		    ConnectUpMGTReg $outfile $channel_type $record_type $loop_index $register
+		}	
+	    }
 	}
 	
     }
@@ -262,18 +251,18 @@ proc GenerateMGTInstance {outfile ip_core channel_type package_files start_index
     puts -nonewline ${outfile} "    port map (\n"
     set line_ending ""
     #loop over all the interface packages for this IP core wrapper
-    foreach package_file $package_files {
-	set package_name [lindex $package_file 0]
-	set package_file [lindex $package_file 1]		
-	puts -nonewline ${outfile} [format "%s%*s => %s(% 3d downto % 3d)" \
-					 $line_ending \
-					 "50" \
-					 $package_name \
-					 "${channel_type}_${package_name}" \
-					 $end_index \
-					 $start_index \
-					]
-	set line_ending ";\n"		
+    dict for {package_name package_records} $package_files {
+	foreach package_record $package_records {
+	    puts -nonewline ${outfile} [format "%s%*s => %s(% 3d downto % 3d)" \
+					    $line_ending \
+					    "50" \
+					    $package_record \
+					    "${channel_type}_${package_name}" \
+					    $end_index \
+					    $start_index \
+					   ]
+	    set line_ending ";\n"		
+	}
     }
     puts -nonewline ${outfile} "    );\n\n\n"
 1}   
@@ -323,7 +312,7 @@ proc BuildHAL {hal_yaml_file} {
     }
 
     
-    #build the final xml files
+    #build the final (top level) xml files for each channel_type
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
 	#find all the command and channel xml files
@@ -335,7 +324,7 @@ proc BuildHAL {hal_yaml_file} {
 		set xml_file_channel [lindex $xml_filename 1]
 	    }
 	}
-	
+
 	BuildTypeXML \
 	    "${apollo_root_path}/${autogen_path}/HAL/" \
 	    $channel_type \
@@ -345,6 +334,7 @@ proc BuildHAL {hal_yaml_file} {
 	    ${xml_file_channel}
 	
     }
+
 
 
     #run the regmap helper for these cores
@@ -400,18 +390,20 @@ proc BuildHAL {hal_yaml_file} {
 	foreach package_file [dict get $registers "package_files"] {
 	    set package_name [lindex $package_file 0]
 	    set package_file [lindex $package_file 1]
-	    if {[string first "userdata" ${package_name}] == 0 } {
-		#only route out userdata, other packages are internal/via axi
-		set dir "in "
-		if { [string first "_output" $package_name] >= 0 } {
-		    set dir "out"
+	    foreach package_record [dict get ${registers}] {
+		if {[string first "userdata" ${package_name}] == 0 } {
+		    #only route out userdata, other packages are internal/via axi
+		    set dir "in "
+		    if { [string first "_output" $package_name] >= 0 } {
+			set dir "out"
+		    }
+		    puts -nonewline ${HAL_file} [format "%s%40s : %3s %s" \
+						     $line_ending \
+						     "${channel_type}_${package_record}" \
+						     $dir \
+						     ${package_file}]
+		    set line_ending ";\n"
 		}
-		puts -nonewline ${HAL_file} [format "%s%40s : %3s %s" \
-				     $line_ending \
-				     "${channel_type}_${package_name}" \
-				     $dir \
-				     ${package_file}]
-		set line_ending ";\n"
 	    }
 	}
     }
@@ -422,15 +414,18 @@ proc BuildHAL {hal_yaml_file} {
     #write the local signals needed to route ip core packages
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
+	#loop over package_files (not there should on be on entry for the package name)
 	foreach package_file [dict get $registers "package_files"] {	   
 	    set package_name [lindex $package_file 0]
 	    set package_file [lindex $package_file 1]
-	    if {[string first "userdata" ${package_name}] < 0 } {
-		#we don't need local copies of userdata signals
-		puts -nonewline ${HAL_file} [format "  signal %40s : %s(%s-1 downto 0);\n" \
-				     "${channel_type}_${package_name}" \
-				     "${channel_type}_${package_name}_array_t"\
-				     [dict get $type_channel_counts $channel_type] ]
+	    dict for {record_name record_data} [dict get ${registers} "records"] {
+		if {[string first "userdata" ${record_name}] < 0} {		
+		    #we don't need local copies of userdata signals
+		    puts -nonewline ${HAL_file} [format "  signal %40s : %s(%s-1 downto 0);\n" \
+						     "${package_file}_${record_name}" \
+						     "${package_file}_${record_name}_array_t"\
+						     [dict get $type_channel_counts $channel_type] ]
+		}
 	    }
 	}
 	puts -nonewline ${HAL_file} "\n\n"
@@ -459,12 +454,11 @@ proc BuildHAL {hal_yaml_file} {
 		error "When building IP core $ip_core the channel offset ($ending_offset) was larger than the max channel offset ($max_offset)"		
 	    }
 	    #generate the IP Core instance
-	    puts $registers
 	    GenerateMGTInstance \
 		${HAL_file} \
 		[lindex [dict get $ip_info "ip_cores"] $iCore] \
 		${channel_type} \
-		[dict get $registers "package_files"] \
+		[dict get $registers "package_info"] \
 		$current_offset \
 		$ending_offset
 	    
@@ -497,7 +491,7 @@ proc BuildHAL {hal_yaml_file} {
 #    puts $HAL_data
     #    puts "HAL HDL end:\n"
     close $HAL_file
-#    read_vhdl "${apollo_root_path}/${autogen_path}/HAL/HAL.vhd"
+    read_vhdl "${apollo_root_path}/${autogen_path}/HAL/HAL.vhd"
 
-    pdict $ip_template_info
+#    pdict $ip_template_info
 }

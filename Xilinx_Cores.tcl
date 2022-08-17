@@ -1,5 +1,6 @@
 source -notrace ${BD_PATH}/axi_helpers.tcl
 source -notrace ${BD_PATH}/HDL_gen_helpers.tcl
+source -notrace ${BD_PATH}/Xilinx_Cores_MGT_helpers.tcl
 
 #################################################################################
 ## Function to simplify the creation of Xilnix IP cores
@@ -105,6 +106,28 @@ proc BuildILA {params} {
 #################################################################################
 ## Build Xilinx MGT IP wizard cores
 #################################################################################
+# return: mgt_info (old registers) (dictionary)
+#           - channel_count (list): This specific call's channel count
+#           - package_info (dict):
+#             - name : name of the package
+#             - filename : name of the file with the package
+#             - records (dict):  dictionary of all the records
+#               - common_input (dict): dictionary of info about this group of registers
+#                 - name : record name
+#                 - regs (list of dicts)   : list of registers for the common registers into the IP core
+#                   - dictionary:
+#                     - name: real name of register (in core)
+#                     - alias: simplified name
+#                     - dir: in vs out
+#                     - MSB: msb bit position
+#                     - LSB: lsb bit position (really always 0, but for future use)
+#               - common_output (list of dicts)  : list of registers
+#               - userdata_intput (list of dicts): list of registers for the user (data) into the IP core
+#               - userdata_output (list of dicts): list of registers
+#               - clocks_input (list of dicts)   : list of registers
+#               - clocks_output (list of dicts)  : list of registers
+#               - channel_intput (list of dics)
+#               - channel_output
 proc BuildMGTCores {params} {
     global build_name
     global apollo_root_path
@@ -250,236 +273,55 @@ proc BuildMGTCores {params} {
 
     #####################################
     #create a dictionary of registers broken up into six catagories
-    set registers  [dict create \
-			"channel_count"   [list $tx_count] \
-			"common_input"    {}  \
-			"common_output"   {}  \
-			"userdata_input"  {}  \
-			"userdata_output" {}  \
-			"clocks_input"    {}  \
-			"clocks_output"   {}  \
-			"channel_input"   {}  \
-			"channel_output"  [lappend [dict create  \
-							"name" "TXRX_TYPE" \
-							"alias" "TXRX_TYPE" \
-							"dir" "output" \
-							"MSB" 3 \
-							"LSB" 0] \
-					      ] \
-		       ]
+    set records [dict create    \
+		     "common_input"    [dict create  "regs" [list] ]  \
+		     "common_output"   [dict create  "regs" [list] ]  \
+		     "userdata_input"  [dict create  "regs" [list] ]  \
+		     "userdata_output" [dict create  "regs" [list] ]  \
+		     "clocks_input"    [dict create  "regs" [list] ]  \
+		     "clocks_output"   [dict create  "regs" [list] ]  \
+		     "channel_input"   [dict create  "regs" [list] ]  \
+		     "channel_output"  [dict create  "regs" [list \
+								 [ dict create \
+								       "name" "TXRX_TYPE" \
+								       "alias" "TXRX_TYPE" \
+								       "dir" "output" \
+								       "MSB" 3 \
+								       "LSB" 0] \
+								]\
+					   ]\
+		     ]
     #sort our registers into the six catagories above.
-    SortMGTregsIntoPackages ${data} registers $rx_count [dict get $params "clkdata"] [dict get $params "userdata"]
-
-
-    set base_name [dict get $interface "base_name"]
-    puts $base_name    
+    SortMGTregsIntoPackages ${data} records $rx_count [dict get $params "clkdata"] [dict get $params "userdata"]
+    
+    set base_name [dict get $interface "base_name"]    
+    #start the final MGT_Info data structure
+    set MGT_info [dict create                            \
+		      "channel_count"   $tx_count \
+		     ]
+    
     #####################################
     #build packages file for this
     puts "Building packages"
-    if { [dict exists $interface "registers"]} {
+    if { [dict exists $interface "package_info"]} {
 	#we already have this package, check that there isn't anything missing
 	#check that this registers matches the generate registers for common/channel in/out
-	set registers [dict get $interface "registers"]
-	set registers [dict set registers "channel_count" [list $tx_count]]
+	dict append MGT_info "package_info" [dict get $interface "package_info"]
     } else {
-	#build this  package
-	#No existing register map exists, create it.
-	#create this pkg file
+	#build this package
 	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
-	file mkdir $file_path
-	set file_base "${base_name}"
-	set outfile [open "${file_path}/${file_base}_PKG.vhd" w]
-	StartPackage ${outfile} ${file_base}
-	#note the name of this package for the wrapper
-	dict lappend registers "package_files" [list "full" "${file_base}_PKG"]
-
-	foreach module "common_input common_output clocks_input clocks_output channel_input channel_output userdata_input userdata_output" {	    
-	    
-	    set regs [dict get $registers $module]
-	    #	    WritePackage2 ${outfile} ${file_base} ${regs}	    
-	    WritePackageRecord ${outfile} ${file_base} ${regs}
-	}
-	EndPackage ${outfile} ${file_base}
-	close $outfile
-	puts "pkg file ${file_path}/${file_base}_PKG.vhd"
-	read_vhdl "${file_path}/${file_base}_PKG.vhd"	    	    
-
-	#create an xml file for this device
-	#	foreach module "common_input common_output channel_input channel_output" {	    }
-	foreach module "common channel" {	    
-	    #create this xml file
-	    set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
-	    file mkdir $file_path
-	    set file_base "${base_name}_${module}"
-	    set outfile [open "${file_path}/${file_base}.xml" w]	    
-	    #note the name of this package for the wrapper
-	    dict lappend registers "xml_files" [list $module "${file_base}"]
-	    set regs [list]
-	    foreach dir "input output" {
-		if { [dict exists $registers "${module}_${dir}"] } {
-		    if { [llength [dict get $registers "${module}_${dir}"] ] > 0 } {
-			#lappend regs [dict get $registers "${module}_input"]
-			set regs [list {*}$regs {*}[dict get $registers "${module}_${dir}"]]
-		    }
-		}
-	    }
-	    BuildXMLAddressTable ${outfile} ${file_base} ${regs}
-	    close $outfile
-	}
+	set package_info [BuildMGTPackageInfo $base_name $file_path $records]
+	dict append MGT_info "package_info" $package_info
     }
     
 #    set component_info {}
 #    dict append channel_out TXRX_TYPE {"std_logic_vector(3 downto 0)" 4}
 
 
-    
-
     #####################################
     #write the warpper       
     set wrapper_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_wrapper.vhd"
-    set wrapper_file [open ${wrapper_filename} w]
-    puts "Wrapper file: ${wrapper_filename}"
-
-    set line_ending ""; #useful for vhdl lists that can't end with the separator character
-    puts $wrapper_file "library ieee;"
-    puts $wrapper_file "use ieee.std_logic_1164.all;\n"
-    foreach module_package [dict get $registers "package_files"] {
-	set package_name [lindex $module_package 0]
-	set package_file [lindex $module_package 1]
-	puts $wrapper_file "use work.${package_file}.all;"	
-    }
-    puts $wrapper_file "entity ${device_name}_wrapper is\n"
-    puts $wrapper_file "  port ("
-    set line_ending ""
-    foreach module_package [dict get $registers "package_files"] {
-	set package_name [lindex $module_package 0]
-	set package_file [lindex $module_package 1]
-	if { [string first "_input" $package_name] >= 0 } {
-	    set dir "in "
-	} else {
-	    set dir "out"
-	}
-	if { [string first "channel" ${package_name}] == 0 ||
-	     [string first "userdata" ${package_name}] == 0 } {
-	    puts -nonewline $wrapper_file "${line_ending}\n    ${package_name}   : $dir  ${base_name}_${package_name}_array_t(${rx_count}-1 downto 0)"
-	} else {
-	    puts -nonewline $wrapper_file "${line_ending}\n    ${package_name}   : $dir  ${base_name}_${package_name}_t"
-	}
-
-	set line_ending ";"
-    }
-    puts $wrapper_file "    );"
-    puts $wrapper_file "end entity ${device_name}_wrapper;\n"
-    puts $wrapper_file "architecture behavioral of ${device_name}_wrapper is"
-
-
-
-    set component_data ""
-    set entity_data ""
-    set component_line_ending ""
-    set entity_line_ending ""
-    foreach module "common_input common_output clocks_input clocks_output channel_input channel_output userdata_input userdata_output" {
-	foreach signal [dict get ${registers} ${module}] {
-	    #pull needed values from the dictionary
-	    set name [dict get $signal "name"]
-	    set alias [dict get $signal "alias"]
-	    set dir  [dict get $signal "dir"]
-	    #update input/output to vhdl in/out
-	    if { $dir == "input" } {
-		set dir "in "
-	    } else {
-		set dir "out"
-	    }
-	    set MSB [dict get $signal "MSB"]
-	    set LSB [dict get $signal "LSB"]
-
-	    if { [string first "channel" ${module}] == 0 ||
-		 [string first "userdata" ${module}] == 0 } {
-
-		if { $dir == "in "} {
-		    #the size of these are per channel,so we need to update MSB and LSB
-		    set width [expr (1+ $MSB - $LSB)*$rx_count]		
-		    set MSB [expr $LSB + $width - 1]
-		    #entity lines
-		    append entity_data [format "%s%40s(% 3u downto % 3u) => (" \
-					    ${entity_line_ending} \
-					    ${name} \
-					    ${MSB} \
-					    ${LSB} ]
-		    set array_ending "\n"
-		    #fill out the assignment with "&" of the package member
-		    for {set iChannel [expr $rx_count -1]} {$iChannel >= 0} {incr iChannel -1} {
-			append entity_data [format "%s%*s %s(% 3d).%s" \
-						${array_ending} \
-						"60" \
-						" " \
-						${module} \
-						${iChannel} \
-						${alias}]
-			set array_ending " & \n"
-		    }
-		    append entity_data  ")"
-		} else {
-		    set bottom_index 0
-		    set width [expr ($MSB - $LSB + 1)]
-		    for {set iChannel [expr $rx_count -1]} {$iChannel >= 0} {incr iChannel -1} {			
-			append  entity_data [format "%s%40s(% 3u downto % 3u) => %*s %s(% 3u).%s" \
-						 ${entity_line_ending} \
-						 ${name} \
-						 [expr $iChannel * $width ]\
-						 [expr (($iChannel + 1) * $width) -1]\
-						 "60" \
-						 " " \
-						 ${module} \
-						 ${iChannel} \
-						 ${alias}]
-			
-		    }
-		    
-		}
-		
-	    } else {
-		
-		append entity_data [format "%s%40s(% 3u downto % 3u) => %s.%s" \
-					${entity_line_ending} \
-					${name} \
-					$MSB \
-					$LSB \
-					${module} \
-					${alias} ]
-	    }
-	    set entity_line_ending ",\n"
-
-	    
-	    # ${line_ending} is used because VHDL can't handle the last line in a list having the separation character
-	    append component_data [format "%s%40s : %3s std_logic_vector(% 3u downto % 3u)" \
-				       ${component_line_ending}\
-				       ${name} \
-				       ${dir} \
-				       $MSB \
-				       $LSB ]
-	    set component_line_ending ";\n"
-	}
-    }
-
-    #####################################
-    #component declaration for verilog interface    
-    puts $wrapper_file "component ${device_name}"
-    puts $wrapper_file "  port("
-    puts $wrapper_file ${component_data}
-    puts $wrapper_file "  );"
-    puts $wrapper_file "END COMPONENT;"
-
-
-    #####################################
-    #component declaration for verilog interface    
-    puts $wrapper_file "begin"
-    puts $wrapper_file "${device_name}_inst : entity work.${device_name}"
-    puts $wrapper_file "  port map ("
-    puts $wrapper_file ${entity_data}
-    puts $wrapper_file ");"    
-    puts $wrapper_file "end architecture behavioral;"
-    close $wrapper_file
+    BuildMGTWrapperVHDL $device_name $wrapper_filename $MGT_info
     read_vhdl ${wrapper_filename}
     
 ##    for {set i $tx_count} {$i > 0} {incr i -1} {
@@ -487,7 +329,7 @@ proc BuildMGTCores {params} {
 ##	puts -nonewline $wrapper_file [dict get $GT_TYPEs $GT_TYPE]
 ##	puts $wrapper_file ";"
 ##    }
-    return $registers
+    return $MGT_info
 }
 
 

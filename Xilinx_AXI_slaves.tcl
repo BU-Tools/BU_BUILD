@@ -111,6 +111,9 @@ proc AXI_IP_AXI_FW {params} {
     set get_master_cmd "get_bd_intf_pins -of_objects \[get_bd_intf_nets -of_objects \[get_bd_intf_pins ${axi_fw_bus} \]\] -filter {MODE == Master}"
     set slave_interface [eval ${get_slave_cmd}]
     set master_interface [eval ${get_master_cmd}]
+
+    puts $slave_interface
+    puts $master_interface
     
     #delete the net connection
     delete_bd_objs [get_bd_intf_nets -of_objects [get_bd_intf_pins ${axi_fw_bus}]]
