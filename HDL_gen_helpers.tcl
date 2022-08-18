@@ -241,7 +241,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		dict with registers {
 		    dict lappend "userdata_${dir}" "regs" ${entry}
 		}
-#		dict lappend registers "userdata_${dir}" ${entry}
 		set found_signal 1
 		break
 	    }
@@ -260,7 +259,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 			dict lappend "clocks_${dir}" "regs" ${entry}
 		    }
 
-		    #dict lappend registers "clocks_${dir}" ${entry}
 		    set found_signal 1
 		    break
 		}
@@ -277,7 +275,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		dict with registers {
 		    dict lappend "clocks_${dir}" "regs" ${entry}
 		}
-#		dict lappend registers "clocks_$dir" ${entry}
 	    } elseif {[string range $name 0 5] == "gtwiz_" && \
 			  [string first "userdata" $name] == -1 || \
 			  [string first "qpll" $name] >= 0 } {
@@ -285,7 +282,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		dict with registers {
 		    dict lappend "common_${dir}" "regs" ${entry}
 		}
-#		dict lappend registers "common_$dir" ${entry}
 	    } else {
 		#this is a per channel signal
 		#udpate these to divide by the number of channels
@@ -300,8 +296,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		dict with registers {
 		    dict lappend "channel_${dir}" "regs" ${entry}
 		}
-
-#		dict lappend registers "channel_$dir" ${entry}
 	    }
 	}
     }    

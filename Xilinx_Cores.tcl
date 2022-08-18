@@ -309,7 +309,7 @@ proc BuildMGTCores {params} {
 	dict append MGT_info "package_info" [dict get $interface "package_info"]
     } else {
 	#build this package
-	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
+	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/warpper/"
 	set package_info [BuildMGTPackageInfo $base_name $file_path $records]
 	dict append MGT_info "package_info" $package_info
     }

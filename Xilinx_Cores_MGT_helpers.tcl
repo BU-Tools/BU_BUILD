@@ -10,9 +10,14 @@ source -notrace ${BD_PATH}/HDL_gen_helpers.tcl
 # return: package_info
 #          - name : name of the package
 #          - filename : name of the file with the package
+#          - xml_files (dict)
+#            - name : xmlfile_path
 #          - records (dict):  dictionary of all the records
 #            - common_input (dict): dictionary of info about this group of registers
 #              - name : record name
+#              - xml_file: (dict)
+#                  - name
+#                  - path
 #              - regs (list of dicts)   : list of registers for the common registers into the IP core
 #                - dictionary:
 #                  - name: real name of register (in core)
@@ -75,8 +80,11 @@ proc BuildMGTPackageInfo {base_name file_path records} {
 	set outfile [open "${file_path}/${file_base}.xml" w]
 	puts "  Building: ${file_path}/${file_base}.xml"
 	#note the name of this package for the wrapper
+	if { ![dict exists $package_info "xml_files"] } {
+	    dict append package_info "xml_files" ""
+	}
 	dict with package_info {
-	    dict lappend "xml_filenames" $file_base
+	    dict append "xml_files" ${file_base} "${file_path}/${file_base}.xml"
 	}
 	set regs [list]
 	foreach dir "input output" {		

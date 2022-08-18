@@ -140,7 +140,6 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    set parameters [dict set parameters "interface" [dict create "base_name" $channel_type]]
 	    #Build the MGT core
 	    puts "BuildMGTCores $parameters"
-	    abort
 	    set results [BuildMGTCores $parameters]
 	    #create an entry in the ip_template_info dictionary for this template.
 	    #it will include these registers that were created (as this is the first for $template)
@@ -233,7 +232,7 @@ proc ConnectUpMGTRegMap {outfile channel_type record_types ip_registers start_in
     #loop over all of the dictionaries in the ip_registers dictionary
     foreach record_type $record_types {
 	if { [dict exists $ip_registers $record_type] } {
-	    set type_registers [dict get $ip_registers $record_type]
+	    set type_registers [dict get $ip_registers $record_type "regs"]
 
 	    #Loop over index
 	    for {set loop_index $start_index} {$loop_index <= $end_index} {incr loop_index} {
@@ -246,26 +245,24 @@ proc ConnectUpMGTRegMap {outfile channel_type record_types ip_registers start_in
     }
 }
 
-proc GenerateMGTInstance {outfile ip_core channel_type package_files start_index end_index} {
+proc GenerateMGTInstance {outfile ip_core channel_type records start_index end_index} {
     puts -nonewline ${outfile} "  ${ip_core}_inst : entity work.${ip_core}_wrapper\n"
     puts -nonewline ${outfile} "    port map (\n"
     set line_ending ""
     #loop over all the interface packages for this IP core wrapper
-    dict for {package_name package_records} $package_files {
-	foreach package_record $package_records {
-	    puts -nonewline ${outfile} [format "%s%*s => %s(% 3d downto % 3d)" \
-					    $line_ending \
-					    "50" \
-					    $package_record \
-					    "${channel_type}_${package_name}" \
-					    $end_index \
-					    $start_index \
-					   ]
-	    set line_ending ";\n"		
-	}
+    dict for {package_name package_struct} $records {
+	puts -nonewline ${outfile} [format "%s%*s => %s_array_t(% 3d downto % 3d)" \
+					$line_ending \
+					"50" \
+					$package_name \
+					"${channel_type}_${package_name}" \
+					$end_index \
+					$start_index \
+				       ]
+	set line_ending ",\n"		
     }
-    puts -nonewline ${outfile} "    );\n\n\n"
-1}   
+    puts -nonewline ${outfile} "\n    );\n\n\n"
+}   
 
 
 
@@ -298,8 +295,9 @@ proc BuildHAL {hal_yaml_file} {
     #process all the requested channels and build the IP cores for all the quads requested
     #build vhdl packages for their interfaces
     foreach quad ${quads} {
-	HAL_process_quad $quad_channel_templates $quad ip_template_info       	
+	HAL_process_quad $quad_channel_templates $quad ip_template_info	
     }
+
     
     #figure out how many ip core types we have and how many channels of each type
     set type_count [dict size $ip_template_info]
@@ -316,15 +314,17 @@ proc BuildHAL {hal_yaml_file} {
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
 	#find all the command and channel xml files
-	foreach xml_filename [dict get $ip_info "registers" "xml_files"] {
-	    if {[string first "common" [lindex $xml_filename 0] ] == 0} {
-		set xml_file_common [lindex $xml_filename 1]
+	puts $registers
+	puts [dict get $registers "package_info"]
+	dict for {xml_name xml_file} [dict get $registers "package_info" "xml_files"] {
+	    if {[string first "common" $xml_name ] > 0} {
+		set xml_file_common $xml_name
 	    }
-	    if {[string first "channel" [lindex $xml_filename 0] ] == 0} {
-		set xml_file_channel [lindex $xml_filename 1]
-	    }
+	    if {[string first "channel" $xml_name ] > 0} {
+		set xml_file_channel $xml_name
+	    }	    
 	}
-
+	
 	BuildTypeXML \
 	    "${apollo_root_path}/${autogen_path}/HAL/" \
 	    $channel_type \
@@ -335,9 +335,8 @@ proc BuildHAL {hal_yaml_file} {
 	
     }
 
-
-
     #run the regmap helper for these cores
+    set regmap_pkgs [list]
     dict for {channel_type ip_info} $ip_template_info {
 	set reg_params [dict create \
 			    device_name ${channel_type} \
@@ -347,6 +346,7 @@ proc BuildHAL {hal_yaml_file} {
 			    verbose True \
 			   ]
 	GenerateRegMap ${reg_params}
+	lappend regmap_pkgs ${channel_type}_Ctrl
     }
 
 
@@ -359,16 +359,15 @@ proc BuildHAL {hal_yaml_file} {
     puts -nonewline ${HAL_file} "use work.axiRegPkg.all;\n"
 
 
-    #Add all the packages we will need    
+    #Add all the packages we will need for the IP Core wrappers   
     dict for {channel_type ip_info} $ip_template_info {
-	set registers [dict get $ip_info "registers"]
-	foreach package_file [dict get $registers "package_files"] {
-	    set package_name [lindex $package_file 0]
-	    set package_file [lindex $package_file 1]
-	    puts -nonewline ${HAL_file} "use work.${package_file}.all;\n"	
-	}
+	set package_name [dict get $ip_info "registers" "package_info" "name"]
+	puts -nonewline ${HAL_file} "use work.${package_name}.all;\n"
     }
-
+    #Add all the packages we will need for the regmap decoders
+    foreach regmap_pkg $regmap_pkgs {
+	puts -nonewline ${HAL_file} "use work.${regmap_pkg}.all;\n"
+    }
 
     
     #add basic entity
@@ -386,24 +385,20 @@ proc BuildHAL {hal_yaml_file} {
     #finish entity port map
     set line_ending ""
     dict for {channel_type ip_info} $ip_template_info {
-	set registers [dict get $ip_info "registers"]
-	foreach package_file [dict get $registers "package_files"] {
-	    set package_name [lindex $package_file 0]
-	    set package_file [lindex $package_file 1]
-	    foreach package_record [dict get ${registers}] {
-		if {[string first "userdata" ${package_name}] == 0 } {
-		    #only route out userdata, other packages are internal/via axi
-		    set dir "in "
-		    if { [string first "_output" $package_name] >= 0 } {
-			set dir "out"
-		    }
-		    puts -nonewline ${HAL_file} [format "%s%40s : %3s %s" \
-						     $line_ending \
-						     "${channel_type}_${package_record}" \
-						     $dir \
-						     ${package_file}]
-		    set line_ending ";\n"
+	set records [dict get $ip_info "registers" "package_info" "records"]
+	foreach record_name [dict keys $records] {
+	    if {[string first "userdata" ${record_name}] == 0 } {
+		#only route out userdata, other packages are internal/via axi
+		set dir "in "
+		if { [string first "_output" $package_name] >= 0 } {
+		    set dir "out"
 		}
+		puts -nonewline ${HAL_file} [format "%s%40s : %3s %s" \
+						 $line_ending \
+						 "${channel_type}_${record_name}" \
+						 $dir \
+						 ${channel_type}_${record_name}_t]
+		set line_ending ";\n"
 	    }
 	}
     }
@@ -415,17 +410,14 @@ proc BuildHAL {hal_yaml_file} {
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
 	#loop over package_files (not there should on be on entry for the package name)
-	foreach package_file [dict get $registers "package_files"] {	   
-	    set package_name [lindex $package_file 0]
-	    set package_file [lindex $package_file 1]
-	    dict for {record_name record_data} [dict get ${registers} "records"] {
-		if {[string first "userdata" ${record_name}] < 0} {		
-		    #we don't need local copies of userdata signals
-		    puts -nonewline ${HAL_file} [format "  signal %40s : %s(%s-1 downto 0);\n" \
-						     "${package_file}_${record_name}" \
-						     "${package_file}_${record_name}_array_t"\
-						     [dict get $type_channel_counts $channel_type] ]
-		}
+	set package_name [dict get $ip_info "registers" "package_info" "name"]
+	dict for {record_name record_data} [dict get ${registers} "package_info" "records"] {
+	    if {[string first "userdata" ${record_name}] < 0} {		
+		#we don't need local copies of userdata signals
+		puts -nonewline ${HAL_file} [format "  signal %40s : %s(%s-1 downto 0);\n" \
+						 "${channel_type}_${record_name}" \
+						 "${channel_type}_${record_name}_array_t"\
+						 [dict get $type_channel_counts $channel_type] ]
 	    }
 	}
 	puts -nonewline ${HAL_file} "\n\n"
@@ -458,7 +450,7 @@ proc BuildHAL {hal_yaml_file} {
 		${HAL_file} \
 		[lindex [dict get $ip_info "ip_cores"] $iCore] \
 		${channel_type} \
-		[dict get $registers "package_info"] \
+		[dict get $registers "package_info" "records"] \
 		$current_offset \
 		$ending_offset
 	    
@@ -467,13 +459,13 @@ proc BuildHAL {hal_yaml_file} {
 	    ConnectUpMGTRegMap \
 		${HAL_file} $channel_type \
 		"common_input common_output" \
-		[dict get $ip_info "registers"] \
+		[dict get $registers "package_info" "records"] \
 		$iCore $iCore
 	    #connect up all the perchannel register signals
 	    ConnectUpMGTRegMap \
 		${HAL_file} $channel_type \
 		"channel_input channel_output" \
-		[dict get $ip_info "registers"] \
+		[dict get $registers "package_info" "records"] \
 		$current_offset $ending_offset
 	    
 	    
