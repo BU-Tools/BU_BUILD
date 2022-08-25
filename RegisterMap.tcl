@@ -66,7 +66,17 @@ proc GenerateRegMap {params} {
 		     $device_name ]
     set ret [exec {*}$command]
 
-
+    set regmapsize 0
+    foreach line $ret {
+	if { [string first "RegmapSize" $line ] >= 0} {
+	    set split_line [split $line ":"]
+	    if { [llength $split_line] >= 3 } {
+		regmapsize = [lindex $split_line 3]
+	    }
+	}
+    }
+    
+    
     #restore path
     cd $current_dir
 
@@ -84,5 +94,7 @@ proc GenerateRegMap {params} {
 
     puts $pkgFile
     puts $mapFile
+
+    return [list $pkgFile $mapFile $regmapsize]
 }
 		   

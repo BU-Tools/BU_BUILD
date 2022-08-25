@@ -204,23 +204,36 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
 #connect up one register signal 
 proc ConnectUpMGTReg {outfile channel_type record_type index register} {
     set alias [dict get $register "alias"]
-    set dir   [dict get $register "dir"]		       			
+    set dir   [dict get $register "dir"]
+    set MSB   [dict get $register "MSB"]
+    set LSB   [dict get $register "LSB"]
+
+    set vec_convert ""
+    if { [expr $MSB - $LSB] == 0 } {
+	set vec_convert "(0)"
+    }
     if { [string first ${dir} "_input"] > 0 } {
-	set left_name  [format "%s(%d).%s" \
+	set left_name  [format "%s(%d).%s%s" \
 			    "${channel_type}_${record_type}" \
 			    ${index} \
-			    ${alias} ]
-	set right_name [format "%s(%d).%s" \
+			    ${alias} \
+			    ${vec_convert} \
+			    ]
+	set right_name [format "%s.%s(%d).%s" \
 			    "Ctrl_${channel_type}" \
+			    [string map {"_input" "" } ${record_type} ] \
 			    ${index} \
 			    ${alias} ]
     } else {
-	set right_name  [format "%s(%d).%s" \
+	set right_name  [format "%s(%d).%s%s" \
 			     "${channel_type}_${record_type}" \
 			     ${index} \
-			     ${alias} ]
-	set left_name [format "%s(%d).%s" \
+			     ${alias} \
+			     ${vec_convert} \
+			     ]
+	set left_name [format "%s.%s(%d).%s" \
 			   "Mon_${channel_type}" \
+			   [string map {"_output" "" } ${record_type} ] \
 			   ${index} \
 			   ${alias} ]
     }
@@ -245,24 +258,6 @@ proc ConnectUpMGTRegMap {outfile channel_type record_types ip_registers start_in
     }
 }
 
-proc GenerateMGTInstance {outfile ip_core channel_type records start_index end_index} {
-    puts -nonewline ${outfile} "  ${ip_core}_inst : entity work.${ip_core}_wrapper\n"
-    puts -nonewline ${outfile} "    port map (\n"
-    set line_ending ""
-    #loop over all the interface packages for this IP core wrapper
-    dict for {package_name package_struct} $records {
-	puts -nonewline ${outfile} [format "%s%*s => %s_array_t(% 3d downto % 3d)" \
-					$line_ending \
-					"50" \
-					$package_name \
-					"${channel_type}_${package_name}" \
-					$end_index \
-					$start_index \
-				       ]
-	set line_ending ",\n"		
-    }
-    puts -nonewline ${outfile} "\n    );\n\n\n"
-}   
 
 
 
@@ -273,12 +268,16 @@ proc InstantiateMGTGroup {} {
 
 #This function is the primary call to build a HAL (hardware abstraction layer) hdl file
 #  (and associated IPCores and decoders) for the MGT links on the FPGA
-proc BuildHAL {hal_yaml_file} {    
+proc BuildHAL {params} {    
     #Global build names
     global build_name
     global apollo_root_path
     global autogen_path
 
+    puts "Param values: $params"
+    
+    set_required_values $params "hal_yaml_file" False
+    set_required_values $params "axi_control"
     
     #TODO: do a test for modification time between config yaml file and output products,
     # so we can skip this step if it has already been run.
@@ -337,15 +336,19 @@ proc BuildHAL {hal_yaml_file} {
 
     #run the regmap helper for these cores
     set regmap_pkgs [list]
+    set regmap_sizes [dict create]
     dict for {channel_type ip_info} $ip_template_info {
 	set reg_params [dict create \
 			    device_name ${channel_type} \
 			    xml_path "${apollo_root_path}/${autogen_path}/HAL/${channel_type}_top.xml" \
-			    out_path "${apollo_root_path}/${autogen_path}/HAL/${channel_type}/" \
+			    out_path "${apollo_root_path}/${autogen_path}/HAL/${channel_type}/wrapper/${channel_type}/" \
 			    simple True \
 			    verbose True \
 			   ]
-	GenerateRegMap ${reg_params}
+	set generated_map_data [GenerateRegMap ${reg_params}]
+	read_vhdl [lindex $generated_map_data 0]; #PKG file
+	read_vhdl [lindex $generated_map_data 1]; #MAP file
+	dict append regmap_sizes $channel_type  [lindex $generated_map_data 2]
 	lappend regmap_pkgs ${channel_type}_Ctrl
     }
 
@@ -369,9 +372,22 @@ proc BuildHAL {hal_yaml_file} {
 	puts -nonewline ${HAL_file} "use work.${regmap_pkg}.all;\n"
     }
 
-    
-    #add basic entity
+    #############################################################################
+    # Add entity declaration
+    #############################################################################
     puts -nonewline ${HAL_file} "entity HAL is\n"
+    #generics for decoder size checking
+    puts -nonewline ${HAL_file} "  generic (\n"
+    set line_ending ""
+    dict for {channel_type ip_info} $ip_template_info {
+	puts -nonewline ${HAL_file} [format "%s%40s : integer" \
+					 $line_ending \
+					 "HAL_${channel_type}_MEMORY_RANGE"
+				    ]
+	set line_ending ";\n"	
+    }
+    puts -nonewline ${HAL_file} ");\n"
+    #normal ports
     puts -nonewline ${HAL_file} "  port (\n"
     puts -nonewline ${HAL_file} "                                 clk_axi : in  std_logic;\n"
     puts -nonewline ${HAL_file} "                             reset_axi_n : in  std_logic;\n"
@@ -390,23 +406,31 @@ proc BuildHAL {hal_yaml_file} {
 	    if {[string first "userdata" ${record_name}] == 0 } {
 		#only route out userdata, other packages are internal/via axi
 		set dir "in "
-		if { [string first "_output" $package_name] >= 0 } {
+		if { [string first "_output" $record_name] >= 0 } {
 		    set dir "out"
 		}
-		puts -nonewline ${HAL_file} [format "%s%40s : %3s %s" \
+		puts -nonewline ${HAL_file} [format "%s%40s : %3s %s_array_t(% 3d-1 downto 0)" \
 						 $line_ending \
 						 "${channel_type}_${record_name}" \
 						 $dir \
-						 ${channel_type}_${record_name}_t]
+						 ${channel_type}_${record_name} \
+						 [dict get $type_channel_counts $channel_type] \
+						]
 		set line_ending ";\n"
 	    }
 	}
     }
     puts -nonewline ${HAL_file} ");\n"
     puts -nonewline ${HAL_file} "end entity HAL;\n\n\n"
+
+    #############################################################################
+    # Architecture
+    #############################################################################
     puts -nonewline ${HAL_file} "architecture behavioral of HAL is\n"
 
     #write the local signals needed to route ip core packages
+
+    #Add wrapper signals
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
 	#loop over package_files (not there should on be on entry for the package name)
@@ -422,7 +446,19 @@ proc BuildHAL {hal_yaml_file} {
 	}
 	puts -nonewline ${HAL_file} "\n\n"
     }
-  
+    #Add regmap signals
+    dict for {channel_type ip_info} $ip_template_info {
+	foreach reg_map_record {"Ctrl" "Mon"} {
+	    puts -nonewline ${HAL_file} [format "  signal %40s : %s;\n" \
+					     "${reg_map_record}_${channel_type}" \
+					     "${channel_type}_${reg_map_record}_t"]
+	}
+    }
+
+    #############################################################################
+    # VHDL Begin
+    #############################################################################
+    
     #Generate all the ip cores, grouped by type
     puts -nonewline ${HAL_file} "begin\n"
     dict for {channel_type ip_info} $ip_template_info {
@@ -438,21 +474,30 @@ proc BuildHAL {hal_yaml_file} {
 
 	GenerateRegMapInstance $channel_type ${AXI_array_index} ${HAL_file}
 	set AXI_array_index [expr ${AXI_array_index} + 1]
+	set current_single_index 0
+	set current_multi_index 0
 	
 	for {set iCore 0} {$iCore < [dict get $type_common_counts $channel_type]} {incr iCore} {
+
+	    puts $current_single_index
+	    puts $max_offset
+	    puts $current_multi_index
+	    
 	    #check that the range for this ipcore in the array of packages makes sense 
-	    set ending_offset [expr $current_offset + [lindex [dict get $ip_info "core_channel_count"] $iCore] -1]
-	    if {$ending_offset >= ${max_offset} } {
-		error "When building IP core $ip_core the channel offset ($ending_offset) was larger than the max channel offset ($max_offset)"		
+#	    set ending_offset [expr $current_offset + [lindex [dict get $ip_info "core_channel_count"] $iCore] -1]
+	    if {$current_single_index >= ${max_offset} } {
+		error "When building IP core $ip_core the channel offset ($current_single_index) was larger than the max channel offset ($max_offset)"		
 	    }
 	    #generate the IP Core instance
+	    set old_current_single_index $current_single_index
+	    set old_current_multi_index $current_multi_index
 	    GenerateMGTInstance \
 		${HAL_file} \
 		[lindex [dict get $ip_info "ip_cores"] $iCore] \
 		${channel_type} \
 		[dict get $registers "package_info" "records"] \
-		$current_offset \
-		$ending_offset
+		"current_single_index" \
+		"current_multi_index"
 	    
 
 	    #connect up all the common per-quad register signals
@@ -460,30 +505,48 @@ proc BuildHAL {hal_yaml_file} {
 		${HAL_file} $channel_type \
 		"common_input common_output" \
 		[dict get $registers "package_info" "records"] \
-		$iCore $iCore
+		$old_current_single_index \
+		$old_current_single_index
 	    #connect up all the perchannel register signals
 	    ConnectUpMGTRegMap \
 		${HAL_file} $channel_type \
 		"channel_input channel_output" \
 		[dict get $registers "package_info" "records"] \
-		$current_offset $ending_offset
+		$old_current_multi_index \
+		[expr $current_multi_index -1]
 	    
 	    
 	    #move to the next group of signals
-	    set current_offset [expr $ending_offset + 1]
 	}
-	puts -nonewline ${HAL_file} "\n  );\n"
+	puts -nonewline ${HAL_file} "\n\n"
 	
     }
 
     puts -nonewline ${HAL_file} "end architecture behavioral;\n"
 	
        	
-#    puts "HAL HDL begin:\n"
-#    puts $HAL_data
-    #    puts "HAL HDL end:\n"
     close $HAL_file
     read_vhdl "${apollo_root_path}/${autogen_path}/HAL/HAL.vhd"
 
-#    pdict $ip_template_info
+    #add AXI PL connections for the decoders
+    dict for {channel_type ip_info} $ip_template_info {
+	
+	set mapsize [expr 2**([dict get $regmap_sizes $channel_type] - 10)]; #-10 for 2**10 == 1k
+	if { $mapsize > 1024 } {
+	    set mapsize [expr $mapsize >> 10]"M"
+	} else {
+	    set mapsize ${mapsize}"M"
+	}
+	AXI_PL_DEV_CONNECT [dict create \
+				"device_name" $channel_type \
+				"axi_control" [dict create  \
+						   "axi_interconnect" $axi_interconnect \
+						   "axi_clk" $axi_clk \
+						   "axi_rstn" $axi_rstn \
+						   "axi_freq" $axi_freq \
+						  ]\
+				"addr"        [dict create "offset" "-1" "range" $mapsize]
+			    ]
+    }
+    
 }

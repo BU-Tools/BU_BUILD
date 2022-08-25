@@ -267,3 +267,62 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     puts $wrapper_file "end architecture behavioral;"
     close $wrapper_file
 }
+
+
+
+proc GenerateMGTInstance {outfile ip_core channel_type records single_record_index_name multi_record_index_name} {
+    upvar $single_record_index_name single_record_index
+    upvar $multi_record_index_name multi_record_index
+    #to keep track for updating at the end
+    set update_single_index  0
+    set update_multi_index   0
+    
+    puts -nonewline ${outfile} "  ${ip_core}_inst : entity work.${ip_core}_wrapper\n"
+    puts -nonewline ${outfile} "    port map (\n"
+    set line_ending ""
+    #loop over all the interface packages for this IP core wrapper
+    dict for {package_name package_struct} $records {
+	set end_index 0
+	set start_index 0
+	if { ([string first "channel_" $package_name] >= 0) || ([string first "userdata_" $package_name] >= 0) } {
+	    #this is a multi record index (array)
+	    if { $update_multi_index > 0 } {
+		if { $update_multi_index != [dict get $package_struct "count"] } {
+		    puts "$ipcore $package_name has count that differs from other counts"
+		    error "$ipcore $package_name has count that differs from other counts"
+		}
+	    } else {
+		#this is the first time we are doing this
+		set update_multi_index [dict get $package_struct "count"]
+	    }
+	    set end_index [expr $multi_record_index + $update_multi_index -1]
+	    set start_index $multi_record_index
+
+	    #set the format string
+	    set format_string "%s%*s => %s(% 3d downto % 3d)"
+	} else {
+	    #this is a single record index
+	    set update_single_index 1
+
+	    set end_index $single_record_index
+	    set start_index $single_record_index
+
+	    #set the format string
+	    set format_string "%s%*s => %s(% 3d)"
+	}
+	
+	
+	puts -nonewline ${outfile} [format $format_string \
+					$line_ending \
+					"50" \
+					$package_name \
+					"${channel_type}_${package_name}" \
+					$end_index \
+					$start_index \
+				       ]
+	set line_ending ",\n"		
+    }
+    set single_record_index [expr $single_record_index + $update_single_index]
+    set multi_record_index  [expr $multi_record_index +  $update_multi_index]
+    puts -nonewline ${outfile} "\n    );\n\n\n"
+}   

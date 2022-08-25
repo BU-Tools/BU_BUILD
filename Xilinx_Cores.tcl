@@ -114,6 +114,7 @@ proc BuildILA {params} {
 #             - records (dict):  dictionary of all the records
 #               - common_input (dict): dictionary of info about this group of registers
 #                 - name : record name
+#                 - count : number of things of this type in IPCore
 #                 - regs (list of dicts)   : list of registers for the common registers into the IP core
 #                   - dictionary:
 #                     - name: real name of register (in core)
@@ -126,7 +127,7 @@ proc BuildILA {params} {
 #               - userdata_output (list of dicts): list of registers
 #               - clocks_input (list of dicts)   : list of registers
 #               - clocks_output (list of dicts)  : list of registers
-#               - channel_intput (list of dics)
+#               - channel_intput (list of dicts)
 #               - channel_output
 proc BuildMGTCores {params} {
     global build_name
@@ -274,14 +275,14 @@ proc BuildMGTCores {params} {
     #####################################
     #create a dictionary of registers broken up into six catagories
     set records [dict create    \
-		     "common_input"    [dict create  "regs" [list] ]  \
-		     "common_output"   [dict create  "regs" [list] ]  \
-		     "userdata_input"  [dict create  "regs" [list] ]  \
-		     "userdata_output" [dict create  "regs" [list] ]  \
-		     "clocks_input"    [dict create  "regs" [list] ]  \
-		     "clocks_output"   [dict create  "regs" [list] ]  \
-		     "channel_input"   [dict create  "regs" [list] ]  \
-		     "channel_output"  [dict create  "regs" [list \
+		     "common_input"    [dict create  "count" 1 "regs" [list] ]  \
+		     "common_output"   [dict create  "count" 1 "regs" [list] ]  \
+		     "userdata_input"  [dict create  "count" $tx_count "regs" [list] ]  \
+		     "userdata_output" [dict create  "count" $tx_count "regs" [list] ]  \
+		     "clocks_input"    [dict create  "count" 1 "regs" [list] ]  \
+		     "clocks_output"   [dict create  "count" 1 "regs" [list] ]  \
+		     "channel_input"   [dict create  "count" $tx_count "regs" [list] ]  \
+		     "channel_output"  [dict create  "count" $tx_count "regs" [list \
 								 [ dict create \
 								       "name" "TXRX_TYPE" \
 								       "alias" "TXRX_TYPE" \
@@ -309,7 +310,7 @@ proc BuildMGTCores {params} {
 	dict append MGT_info "package_info" [dict get $interface "package_info"]
     } else {
 	#build this package
-	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/warpper/"
+	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
 	set package_info [BuildMGTPackageInfo $base_name $file_path $records]
 	dict append MGT_info "package_info" $package_info
     }
