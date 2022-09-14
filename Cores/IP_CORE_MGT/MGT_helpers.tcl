@@ -1,4 +1,4 @@
-source -notrace ${BD_PATH}/HDL_gen_helpers.tcl
+source -notrace ${BD_PATH}/Cores/IP_CORE_MGT/HDL_gen_helpers.tcl
 
 #################################################################################
 ## Build Xilinx MGT IP Package info part of MGT_info
@@ -119,10 +119,6 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     #add includes for records
     set package_name [dict get $MGT_info "package_info" "name"]
     puts $wrapper_file "use work.${package_name}.all;"	
-#    dict for {record_name record_data} [dict get $MGT_info "package_info"] {
-##	set record_type [dict get $record_data "name"]
-#	puts $wrapper_file "use work.${}.all;"	
-#    }
 
     #========================================================
     #build the entity
@@ -161,6 +157,7 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     set entity_data ""
     set component_line_ending ""
     set entity_line_ending ""
+    set TXRX_TYPE_data ""
     puts [dict keys [dict get $MGT_info "package_info" "records"]]
     foreach module "common_input common_output \
     	    	   clocks_input clocks_output \
@@ -169,6 +166,19 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
 	foreach signal [dict get ${MGT_info} "package_info" "records" ${module} "regs"] {
 	    #pull needed values from the dictionary
 	    set name [dict get $signal "name"]
+
+	    #skip the made up signal TXRX_TYPE (Add it manually later)
+	    if { $name == "TXRX_TYPE" } {
+		set value [dict get $signal "value"]
+		append TXRX_TYPE_data [format "  %s.%s <= %s\n" \
+					   ${module} \
+					   ${alias} \
+					   ${value} \
+					  ]
+		continue
+	    }
+
+	    
 	    set alias [dict get $signal "alias"]
 	    set dir  [dict get $signal "dir"]
 	    #update input/output to vhdl in/out
@@ -260,6 +270,7 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     #####################################
     #component declaration for verilog interface    
     puts $wrapper_file "begin"
+    puts $TXRX_TYPE_data
     puts $wrapper_file "${base_name}_inst : entity work.${base_name}"
     puts $wrapper_file "  port map ("
     puts $wrapper_file ${entity_data}

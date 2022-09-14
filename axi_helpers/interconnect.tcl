@@ -1,4 +1,4 @@
-source -notrace ${BD_PATH}/dtsi_helpers.tcl
+source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 
 #add a new master interface to $interconnect to use for a new slave
 proc ADD_MASTER_TO_INTERCONNECT {interconnect} {

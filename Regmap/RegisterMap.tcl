@@ -5,7 +5,7 @@ proc GenerateRegMapPKGUse {name outfile} {
 proc GenerateRegMapInstance { name axi_index outfile} {
     puts $outfile "${name}_map_1: entity work.${name}_map"
     puts $outfile "  generic map ("
-    puts $outfile "    ALLOCATED_MEMORY_RANGE => HAL_${name}_MEMORY_RANGE)"
+    puts $outfile "    ALLOCATED_MEMORY_RANGE => ${name}_MEMORY_RANGE)"
     puts $outfile "  port map ("
     puts $outfile "    clk_axi         => clk_axi,"
     puts $outfile "    reset_axi_n     => reset_axi_n,"

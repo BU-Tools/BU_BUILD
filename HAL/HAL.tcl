@@ -1,7 +1,7 @@
 package require yaml
-source ${BD_PATH}/utils.tcl
-source ${BD_PATH}/RegisterMap.tcl
-source ${BD_PATH}/Xilinx_Cores.tcl
+source ${BD_PATH}/utils/pdict.tcl
+source ${BD_PATH}/Regmap/RegisterMap.tcl
+source ${BD_PATH}/Cores/Xilinx_Cores.tcl
 
 #This function builds all the IP cores reqeuested for the configuration of
 #one FPGA Quad
@@ -13,7 +13,7 @@ source ${BD_PATH}/Xilinx_Cores.tcl
 #                            Channel_type: [list] One entry for each kind of channel in the HAL
 #                              ip_cores: [list] the ipcores generated for this channel type
 #                              core_channel_count: [list] number of channels in this IP core
-#                              mgt_info: [dict] (from Xilinx_Cores.tcl, BuildMGTCores)
+#                              mgt_info: [dict] (from Xilinx_Cores.tcl, IP_CORE_MGT)
 
 proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
     global build_name
@@ -127,7 +127,7 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    set parameters [dict set parameters "interface" [dict create "base_name" $channel_type \
 								 "registers" [dict get $ip_template_info ${channel_type} "registers"] ] ]
 	    #build the MGT core without new packages
-	    set results [BuildMGTCores $parameters]
+	    set results [IP_CORE_MGT $parameters]
 	    
 	    dict update ip_template_info ${channel_type} temp_value {
 		#add this ip core's name for this quad + template to the list
@@ -139,8 +139,8 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    puts "Template ${channel_type} doesn't exists, creating it\n\n\n\n"
 	    set parameters [dict set parameters "interface" [dict create "base_name" $channel_type]]
 	    #Build the MGT core
-	    puts "BuildMGTCores $parameters"
-	    set results [BuildMGTCores $parameters]
+	    puts "IP_CORE_MGT $parameters"
+	    set results [IP_CORE_MGT $parameters]
 	    #create an entry in the ip_template_info dictionary for this template.
 	    #it will include these registers that were created (as this is the first for $template)
 	    #it will also include (ip_cores) this ip core's name for this quad + template
@@ -382,7 +382,7 @@ proc BuildHAL {params} {
     dict for {channel_type ip_info} $ip_template_info {
 	puts -nonewline ${HAL_file} [format "%s%40s : integer" \
 					 $line_ending \
-					 "HAL_${channel_type}_MEMORY_RANGE"
+					 "${channel_type}_MEMORY_RANGE"
 				    ]
 	set line_ending ";\n"	
     }
