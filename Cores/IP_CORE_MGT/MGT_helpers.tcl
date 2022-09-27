@@ -102,7 +102,10 @@ proc BuildMGTPackageInfo {base_name file_path records} {
     return $package_info
 }
 
+
 proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
+    puts $MGT_info
+
     set channel_count [dict get ${MGT_info} "channel_count"]
     
     set wrapper_file [open ${wrapper_filename} w]
@@ -222,8 +225,8 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
 			append  entity_data [format "%s%40s(% 3u downto % 3u) => %*s %s(% 3u).%s" \
 						 ${entity_line_ending} \
 						 ${name} \
-						 [expr $iChannel * $width ]\
 						 [expr (($iChannel + 1) * $width) -1]\
+						 [expr $iChannel * $width ]\
 						 "60" \
 						 " " \
 						 ${module} \

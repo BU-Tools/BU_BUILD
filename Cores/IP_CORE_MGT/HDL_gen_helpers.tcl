@@ -105,12 +105,10 @@ proc XMLentry {name addr MSB LSB direction} {
 ## Generate an XML file for a set of registers
 #################################################################################
 proc BuildXMLAddressTable {outfile name data} {
-    puts $data
     if { [llength $data] > 0 } {
 	puts $outfile "<node id=\"${name}\">"
 	set addr 0
 	foreach entry $data {
-	    puts $entry
 	    set alias [dict get $entry "alias"]
 	    set MSB   [dict get $entry "MSB"]
 	    set LSB   [dict get $entry "LSB"]
@@ -172,6 +170,8 @@ proc ParseVerilogComponent {filename} {
 
 	set foundMatch [regexp ${parse_regex} $line full_match direction MSB LSB name ]
 	if {  ${foundMatch} == 1} {
+	    puts "match: $foundMatch : $direction $MSB $LSB $name : $line"
+	    
 	    #set an alias for this signal that is clean of Xilinx's _in/_out naming
 	    set alias $name
 
@@ -187,6 +187,7 @@ proc ParseVerilogComponent {filename} {
 			      "MSB"   $MSB \
 			      "LSB"   $LSB\
 			     ]
+	    puts [lindex $data end]
 	}
     }
     close $example_verilog_file
@@ -219,30 +220,38 @@ proc ParseVerilogComponent {filename} {
 #proc SortMGTregsIntoPackages_UpdateEntry {registers_name }
 proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata userdata } {
     upvar $reg_output_name registers
-    foreach entry ${reg_input} {
+    foreach entry ${reg_input} {	
 	set name  [dict get ${entry} "name"]
 	set alias [dict get ${entry} "alias"]
 	set dir   [dict get ${entry} "dir"]
 	set MSB   [dict get ${entry} "MSB"]
 	set LSB   [dict get ${entry} "LSB"]
 
-	
+	puts "Sort start: $name $alias $dir $MSB $LSB"
 	
 	# isolate specially requested userdata signals
 	set found_signal 0
-	foreach username ${userdata} {	    
-	    if { [string equal -nocase $alias $username] } {
-		#Adjust width for per channel
-		set width [expr  ((1+$MSB - $LSB))]
-		if { [expr $width % $channel_count] == 0 } {
-		    #update the MSB for a single channel
-		    dict set entry "MSB" [expr ${width}/$channel_count -1]
+
+	puts $name
+	if { [regex -nocase {gt[xyh][tr]x_(out|in)} $name match a  ] > 0} {
+	    puts "matched:  $match $a"
+	    set found_signal 1
+	}
+	if { ! ${found_signal} } {
+	    foreach username ${userdata} {	    
+		if { [string equal -nocase $alias $username] } {
+		    #Adjust width for per channel
+		    set width [expr  ((1+$MSB - $LSB))]
+		    if { [expr $width % $channel_count] == 0 } {
+			#update the MSB for a single channel
+			dict set entry "MSB" [expr ${width}/$channel_count -1]
+		    }
+		    dict with registers {
+			dict lappend "userdata_${dir}" "regs" ${entry}
+		    }
+		    set found_signal 1
+		    break
 		}
-		dict with registers {
-		    dict lappend "userdata_${dir}" "regs" ${entry}
-		}
-		set found_signal 1
-		break
 	    }
 	}
 
@@ -250,11 +259,11 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	    foreach clkname ${clkdata} {	    
 		if { [string equal -nocase $alias $clkname] } {
 		    #Adjust width for per channel
-		    set width [expr  ((1+$MSB - $LSB))]
-		    if { [expr $width % $channel_count] == 0 } {
-			#update the MSB for a single channel
-			dict set entry "MSB" [expr ${width}/$channel_count -1]
-		    }
+#		    set width [expr  ((1+$MSB - $LSB))]
+#		    if { [expr $width % $channel_count] == 0 } {
+#			#update the MSB for a single channel
+#			dict set entry "MSB" [expr ${width}/$channel_count -1]
+#		    }
 		    dict with registers {
 			dict lappend "clocks_${dir}" "regs" ${entry}
 		    }
@@ -298,5 +307,5 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		}
 	    }
 	}
-    }    
+    }
 }

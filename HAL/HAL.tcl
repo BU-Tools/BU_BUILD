@@ -2,6 +2,7 @@ package require yaml
 source ${BD_PATH}/utils/pdict.tcl
 source ${BD_PATH}/Regmap/RegisterMap.tcl
 source ${BD_PATH}/Cores/Xilinx_Cores.tcl
+source ${BD_PATH}/HAL/HAL_helpers.tcl
 
 #This function builds all the IP cores reqeuested for the configuration of
 #one FPGA Quad
@@ -14,6 +15,7 @@ source ${BD_PATH}/Cores/Xilinx_Cores.tcl
 #                              ip_cores: [list] the ipcores generated for this channel type
 #                              core_channel_count: [list] number of channels in this IP core
 #                              mgt_info: [dict] (from Xilinx_Cores.tcl, IP_CORE_MGT)
+
 
 proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
     global build_name
@@ -36,6 +38,7 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
     #find the number of channel templates used
     set template_channel_map [dict create]; #map of tempates to channels	
     foreach channelID [dict keys ${channels}] {
+	puts "  Channel: $channelID"
 	set current_channel [dict get ${channels} ${channelID}]
 	#the default is that this channel is manually configured
 	#and each manual configuration is considered unique even
@@ -52,17 +55,17 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	#update the map that counts number of templates used
 	if [dict exists ${template_channel_map} ${template_name}] {
 	    set existing_template_list [dict get ${template_channel_map} ${template_name}]
-	    set existing_template_list [lappend existingTemplateList ${channelID}]
-	    set template_channel_map [dict set \
-					  template_channel_map \
-					  ${template_name} ${existing_template_list}]
+	    lappend existing_template_list ${channelID}
+	    dict set \
+		template_channel_map \
+		${template_name} ${existing_template_list}
 	} else {
 	    set new_template_list [list ${channelID}]
-	    set template_channel_map [dict set \
-					  template_channel_map \
-					  ${template_name} ${new_template_list}]
+	    dict set \
+		template_channel_map \
+		${template_name} ${new_template_list}
 	}
-	
+
     }
 
     
@@ -134,6 +137,9 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 		dict lappend temp_value "ip_cores" ${ip_name}
 		#add this ip core's channel count to the list
 		dict lappend temp_value "core_channel_count" [dict get $results "channel_count"]
+		dict update temp_value "rx_clocks" rx_clocks { dict append rx_clocks $ip_name [dict create $quad_ID [dict get $results "rx_clocks"]]}
+		dict update temp_value "tx_clocks" tx_clocks { dict append tx_clocks $ip_name [dict create $quad_ID [dict get $results "tx_clocks"]]}
+		
 	    }
 	} else {
 	    puts "Template ${channel_type} doesn't exists, creating it\n\n\n\n"
@@ -141,6 +147,7 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    #Build the MGT core
 	    puts "IP_CORE_MGT $parameters"
 	    set results [IP_CORE_MGT $parameters]
+	    puts $results
 	    #create an entry in the ip_template_info dictionary for this template.
 	    #it will include these registers that were created (as this is the first for $template)
 	    #it will also include (ip_cores) this ip core's name for this quad + template
@@ -149,7 +156,11 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 		[dict create \
 		     "registers" ${results} \
 		     "ip_cores" [list ${ip_name}] \
-		     "core_channel_count" [list [dict get $results "channel_count"]]]	    
+		     "core_channel_count" [list [dict get $results "channel_count"]] \
+		     "rx_clocks" [dict create $ip_name [dict create $quad_ID [dict get $results "rx_clocks"]]] \
+		     "tx_clocks" [dict create $ip_name [dict create $quad_ID [dict get $results "tx_clocks"]]]\ 
+
+		    ]	    
 	}
     }
 }
@@ -164,7 +175,7 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
     set address 0
 
     #process the commons for this type
-    for {set quad_common_count 1} {$quad_common_count <= $common_count} {incr quad_common_count} {
+    for {set quad_common_count 0} {$quad_common_count < $common_count} {incr quad_common_count} {
 	#add each channels module
 	puts $out_file [format \
 			    "  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\" module=\"file://%s\"/>\n" \
@@ -261,10 +272,6 @@ proc ConnectUpMGTRegMap {outfile channel_type record_types ip_registers start_in
 
 
 
-proc InstantiateMGTGroup {} {
-    
-}
-
 
 #This function is the primary call to build a HAL (hardware abstraction layer) hdl file
 #  (and associated IPCores and decoders) for the MGT links on the FPGA
@@ -287,6 +294,8 @@ proc BuildHAL {params} {
 #    set quad_common_template   [dict get [yaml::yaml2dict -file ${hal_yaml_file}] "COMMON_SETS"]
     set quad_channel_templates [dict get [yaml::yaml2dict -file ${hal_yaml_file}] "CHANNEL_SETS"]
     set quads                  [dict get [yaml::yaml2dict -file ${hal_yaml_file}] "QUADS"]
+    puts "Quads:"
+    puts "  $quads"
     
     set ip_template_info [dict create]
 
@@ -294,9 +303,30 @@ proc BuildHAL {params} {
     #process all the requested channels and build the IP cores for all the quads requested
     #build vhdl packages for their interfaces
     foreach quad ${quads} {
-	HAL_process_quad $quad_channel_templates $quad ip_template_info	
+	HAL_process_quad $quad_channel_templates $quad ip_template_info
     }
 
+    #figure out how many physical clocks we need to capture
+    set clock_map [dict create]
+    dict for {channel_type ip_info} $ip_template_info {
+	foreach clock_type "rx_clocks tx_clocks" {	    
+	    set clocks [dict get $ip_info $clock_type]
+	    dict for {ip ip_list} $clocks {;#{quad ip_clks} $clocks
+		dict for {quad clk_list} $ip_list {;#{ip clk_list} $ip_clks
+		    dict for {chan relative_clk} $clk_list {
+			#			set clk_name [GenRefclkName $quad $relative_clk $clk_list]
+			set clk_name [GenRefclkName $quad $relative_clk]
+			dict incr clock_map $clk_name
+		    }
+		}
+	    }
+	}	
+    }
+    #build a package for these clocks
+    set HAL_PKG_filename "${apollo_root_path}/${autogen_path}/HAL/HAL_PKG.vhd"
+    GenRefclkPKG $clock_map $HAL_PKG_filename
+    puts "Adding $HAL_PKG_filename"
+    read_vhdl $HAL_PKG_filename    
     
     #figure out how many ip core types we have and how many channels of each type
     set type_count [dict size $ip_template_info]
@@ -313,8 +343,6 @@ proc BuildHAL {params} {
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
 	#find all the command and channel xml files
-	puts $registers
-	puts [dict get $registers "package_info"]
 	dict for {xml_name xml_file} [dict get $registers "package_info" "xml_files"] {
 	    if {[string first "common" $xml_name ] > 0} {
 		set xml_file_common $xml_name
@@ -360,6 +388,8 @@ proc BuildHAL {params} {
     puts -nonewline ${HAL_file} "library ieee;\n"
     puts -nonewline ${HAL_file} "use ieee.std_logic_1164.all;\n\n"
     puts -nonewline ${HAL_file} "use work.axiRegPkg.all;\n"
+    #add the clocks package
+    puts -nonewline ${HAL_file} "use work.hal_pkg.all;\n\n\n"
 
 
     #Add all the packages we will need for the IP Core wrappers   
@@ -371,6 +401,9 @@ proc BuildHAL {params} {
     foreach regmap_pkg $regmap_pkgs {
 	puts -nonewline ${HAL_file} "use work.${regmap_pkg}.all;\n"
     }
+
+    puts -nonewline ${HAL_file} "Library UNISIM;\n"
+    puts -nonewline ${HAL_file} "use UNISIM.vcomponents.all;\n\n\n"
 
     #############################################################################
     # Add entity declaration
@@ -395,7 +428,8 @@ proc BuildHAL {params} {
     puts -nonewline ${HAL_file} "                                readMISO : out AXIreadMISO_array_t (${type_count} - 1 downto 0);\n"
     puts -nonewline ${HAL_file} "                               writeMOSI : in  AXIwriteMOSI_array_t(${type_count} - 1 downto 0);\n"
     puts -nonewline ${HAL_file} "                               writeMISO : out AXIwriteMISO_array_t(${type_count} - 1 downto 0);\n"
-
+    puts -nonewline ${HAL_file} "                             HAL_refclks : in  HAL_refclks_t;\n"
+    
     set AXI_array_index 0
     
     #finish entity port map
@@ -430,6 +464,17 @@ proc BuildHAL {params} {
 
     #write the local signals needed to route ip core packages
 
+    #Add refclk signals
+    dict for {clk_name count} $clock_map {
+	puts ${HAL_file} [format \
+			      "  signal %40s : std_logic;" \
+			      "refclk_${clk_name}"]
+	puts ${HAL_file} [format \
+			      "  signal %40s : std_logic;" \
+			      "refclk_${clk_name}_2"]
+    }
+    puts ${HAL_file} "" ; #new line
+    
     #Add wrapper signals
     dict for {channel_type ip_info} $ip_template_info {
 	set registers [dict get $ip_info "registers"]
@@ -461,6 +506,26 @@ proc BuildHAL {params} {
     
     #Generate all the ip cores, grouped by type
     puts -nonewline ${HAL_file} "begin\n"
+
+    #capture refclks
+    dict for {clk_name count} $clock_map {
+	#should be generalized to include US FPGAs
+	puts  ${HAL_file} "  ibufds_${clk_name} : ibufds_gte4"
+	puts  ${HAL_file} "    generic map ("
+	puts  ${HAL_file} "      REFCLK_EN_TX_PATH  => '0',"
+	puts  ${HAL_file} "      REFCLK_HROW_CK_SEL => \"00\","
+	puts  ${HAL_file} "      REFCLK_ICNTL_RX    => \"00\")"
+	puts  ${HAL_file} "    port map ("
+	puts  ${HAL_file} "      O     => refclk_${clk_name},"
+	puts  ${HAL_file} "      ODIV2 => refclk_${clk_name}_2,"
+	puts  ${HAL_file} "      CEB   => '0',"
+	puts  ${HAL_file} "      I     => HAL_refclks.refclk_${clk_name}_P,"
+	puts  ${HAL_file} "      IB    => HAL_refclks.refclk_${clk_name}_N"
+	puts  ${HAL_file} "      );"
+	puts  ${HAL_file} "      \n"
+
+    }
+
     dict for {channel_type ip_info} $ip_template_info {
 	#per IP starting offset
 	set current_offset 0
@@ -479,12 +544,8 @@ proc BuildHAL {params} {
 	
 	for {set iCore 0} {$iCore < [dict get $type_common_counts $channel_type]} {incr iCore} {
 
-	    puts $current_single_index
-	    puts $max_offset
-	    puts $current_multi_index
 	    
 	    #check that the range for this ipcore in the array of packages makes sense 
-#	    set ending_offset [expr $current_offset + [lindex [dict get $ip_info "core_channel_count"] $iCore] -1]
 	    if {$current_single_index >= ${max_offset} } {
 		error "When building IP core $ip_core the channel offset ($current_single_index) was larger than the max channel offset ($max_offset)"		
 	    }
@@ -498,8 +559,27 @@ proc BuildHAL {params} {
 		[dict get $registers "package_info" "records"] \
 		"current_single_index" \
 		"current_multi_index"
-	    
 
+	    #connect up clocks
+	    foreach register [dict get $registers "package_info" "records" "clocks_input" "regs"] {
+		#find the appropriate clock dict for this ipcore
+		set current_clks [dict get $ip_info "rx_clocks" [lindex [dict get $ip_info "ip_cores"] $iCore]]
+		
+		
+		for {set iChanClk [dict get $register "LSB"]} {$iChanClk <= [dict get $register "MSB"]} {incr iChanClk} {
+		    #		    set refclk_name [GenRefclkName [lindex $current_clks 0] [lindex [lindex $current_clks 1] 1]]
+		    set refclk_name [GenRefclkName [lindex $current_clks 0] [lindex [lindex $current_clks 1] [expr 2*$iChanClk + 1]]]
+		    puts ${HAL_file} [format "    %s_clocks_input(%d).%s(%d) <= refclk_%s;\n" \
+					  $channel_type \
+					  $old_current_single_index \
+					  [dict get $register "alias"] \
+					  $iChanClk \
+					  $refclk_name \
+					 ]
+		}
+	    }
+
+	    
 	    #connect up all the common per-quad register signals
 	    ConnectUpMGTRegMap \
 		${HAL_file} $channel_type \
@@ -523,10 +603,11 @@ proc BuildHAL {params} {
     }
 
     puts -nonewline ${HAL_file} "end architecture behavioral;\n"
-	
+    
        	
     close $HAL_file
     read_vhdl "${apollo_root_path}/${autogen_path}/HAL/HAL.vhd"
+
 
     #add AXI PL connections for the decoders
     dict for {channel_type ip_info} $ip_template_info {
@@ -548,5 +629,4 @@ proc BuildHAL {params} {
 				"addr"        [dict create "offset" "-1" "range" $mapsize]
 			    ]
     }
-    
 }

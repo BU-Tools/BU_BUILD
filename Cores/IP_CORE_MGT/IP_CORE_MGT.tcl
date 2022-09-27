@@ -195,6 +195,8 @@ proc IP_CORE_MGT {params} {
     #start the final MGT_Info data structure
     set MGT_info [dict create                            \
 		      "channel_count"   $tx_count \
+		      "rx_clocks"  $rx_clocks \
+		      "tx_clocks"  $tx_clocks \
 		     ]
     
     #####################################
@@ -214,6 +216,7 @@ proc IP_CORE_MGT {params} {
 #    set component_info {}
 #    dict append channel_out TXRX_TYPE {"std_logic_vector(3 downto 0)" 4}
 
+    dict append MGT_info "mgt_type" $GT_TYPE
 
     #####################################
     #write the warpper       
