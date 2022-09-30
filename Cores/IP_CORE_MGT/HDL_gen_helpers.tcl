@@ -170,7 +170,6 @@ proc ParseVerilogComponent {filename} {
 
 	set foundMatch [regexp ${parse_regex} $line full_match direction MSB LSB name ]
 	if {  ${foundMatch} == 1} {
-	    puts "match: $foundMatch : $direction $MSB $LSB $name : $line"
 	    
 	    #set an alias for this signal that is clean of Xilinx's _in/_out naming
 	    set alias $name
@@ -219,6 +218,7 @@ proc ParseVerilogComponent {filename} {
 #  - channel_output
 #proc SortMGTregsIntoPackages_UpdateEntry {registers_name }
 proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata userdata } {
+    set skipped [list]
     upvar $reg_output_name registers
     foreach entry ${reg_input} {	
 	set name  [dict get ${entry} "name"]
@@ -232,10 +232,11 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	# isolate specially requested userdata signals
 	set found_signal 0
 
-	puts $name
-	if { [regex -nocase {gt[xyh][tr]x_(out|in)} $name match a  ] > 0} {
-	    puts "matched:  $match $a"
+
+	if { [regex -nocase {gt[xyh][tr]x[pn]_(out|in)} $name match match_dir  ] > 0} {
+
 	    set found_signal 1
+	    lappend skipped ${entry}
 	}
 	if { ! ${found_signal} } {
 	    foreach username ${userdata} {	    
@@ -308,4 +309,5 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	    }
 	}
     }
+    return $skipped
 }

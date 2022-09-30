@@ -129,13 +129,24 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     puts $wrapper_file "entity ${base_name}_wrapper is\n"
     puts $wrapper_file "  port ("
     set line_ending ""
+    foreach reg [dict get $MGT_info "toplevel_regs"] {
+	dict with reg {
+	    if { $dir == "output" } {
+		set local_dir "out"
+	    } else {
+		set local_dir "in"
+	    }
+	    puts -nonewline $wrapper_file "${line_ending}\n"
+	    puts -nonewline $wrapper_file "    ${alias}   : $local_dir std_logic_vector($MSB downto $LSB)"
+	    set line_ending ";"
+	}
+    }
     dict for {record_name record} [dict get $MGT_info "package_info" "records"] {
 	#determin record direction
 	set dir "out"
 	if { [string first "_input" $record_name] >= 0 } {
 	    set dir "in "
 	}
-
 	set record_type [dict get $record "name"]
 	#write port line (channel and userdata are array types, others are normal)
 	puts -nonewline $wrapper_file "${line_ending}\n"
@@ -162,6 +173,33 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     set entity_line_ending ""
     set TXRX_TYPE_data ""
     puts [dict keys [dict get $MGT_info "package_info" "records"]]
+    foreach reg [dict get $MGT_info "toplevel_regs"] {
+	dict with reg {
+	    append entity_data [format "%s%40s => %s" \
+				    ${entity_line_ending} \
+				    ${name} \
+				    ${alias} ]
+	    
+	    set entity_line_ending ",\n"
+    
+	    
+	    # ${line_ending} is used because VHDL can't handle the last line in a list having the separation character
+	    if { $dir == "output" } {
+		set $local_dir "out"
+	    } else {
+		set $local_dir "in"
+	    }
+
+	    append component_data [format "%s%40s : %3s std_logic_vector(% 3u downto % 3u)" \
+				       ${component_line_ending}\
+				       ${name} \
+				       ${local_dir} \
+				       $MSB \
+				       $LSB ]
+	    set component_line_ending ";\n"
+	}
+    }
+    
     foreach module "common_input common_output \
     	    	   clocks_input clocks_output \
 		   channel_input channel_output \
@@ -284,7 +322,7 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
 
 
 
-proc GenerateMGTInstance {outfile ip_core channel_type records single_record_index_name multi_record_index_name} {
+proc GenerateMGTInstance {outfile ip_core channel_type records toplevel_signals single_record_index_name multi_record_index_name} {
     upvar $single_record_index_name single_record_index
     upvar $multi_record_index_name multi_record_index
     #to keep track for updating at the end
@@ -294,6 +332,21 @@ proc GenerateMGTInstance {outfile ip_core channel_type records single_record_ind
     puts -nonewline ${outfile} "  ${ip_core}_inst : entity work.${ip_core}_wrapper\n"
     puts -nonewline ${outfile} "    port map (\n"
     set line_ending ""
+
+    foreach toplevel_signal $toplevel_signals {
+	dict with toplevel_signal {
+	    puts -nonewline ${outfile} [format "%s%*s => HAL_serdes_%s.%s_%s" \
+					    $line_ending \
+					    50 \
+					    $alias \
+					    $dir \
+					    $ip_core \
+					    $alias
+				       ]
+	    set line_ending ",\n"
+	}
+    }
+    
     #loop over all the interface packages for this IP core wrapper
     dict for {package_name package_struct} $records {
 	set end_index 0

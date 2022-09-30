@@ -10,7 +10,7 @@ proc GenRefclkName {quad relative_clk} {
     return $clk_name
 }
 
-proc GenRefclkPKG {clock_map filename} {
+proc GenRefclkPKG {clock_map toplevel_signals filename} {
     set outFile [open $filename w]    
     puts -nonewline ${outFile} "library IEEE;\n"
     puts -nonewline ${outFile} "use IEEE.std_logic_1164.all;\n\n"
@@ -22,7 +22,30 @@ proc GenRefclkPKG {clock_map filename} {
 	puts -nonewline ${outFile} [format "  %20s : std_logic;\n" "refclk_${clk_name}_N"]
     }
     puts -nonewline ${outFile} "end record HAL_refclks_t;\n"
+
+    foreach record_dir "input output" {
+	puts -nonewline ${outFile} "type HAL_serdes_${record_dir}_t is record\n"    
+	dict for {ipcore signals} $toplevel_signals {
+	    foreach signal $signals {
+		dict with signal {
+		    if {$dir == $record_dir} {
+			puts -nonewline ${outFile} [format \
+							"  %20s : std_logic_vector(%d downto %d);\n" \
+							"${ipcore}_${alias}" \
+							$MSB \
+							$LSB \
+							]
+		    }
+		}		
+	    }
+	}
+	puts -nonewline ${outFile} "end record HAL_serdes_${record_dir}_t;\n"
+    }
+
+
     puts -nonewline ${outFile} "end package HAL_PKG;\n"
     close $outFile
     return $filename
 }
+
+

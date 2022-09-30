@@ -135,6 +135,8 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    dict update ip_template_info ${channel_type} temp_value {
 		#add this ip core's name for this quad + template to the list
 		dict lappend temp_value "ip_cores" ${ip_name}
+		#asdf
+		dict update temp_value "toplevel_regs" toplevel_regs { dict append toplevel_regs $ip_name  [dict get $results "toplevel_regs"]}
 		#add this ip core's channel count to the list
 		dict lappend temp_value "core_channel_count" [dict get $results "channel_count"]
 		dict update temp_value "rx_clocks" rx_clocks { dict append rx_clocks $ip_name [dict create $quad_ID [dict get $results "rx_clocks"]]}
@@ -147,7 +149,6 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    #Build the MGT core
 	    puts "IP_CORE_MGT $parameters"
 	    set results [IP_CORE_MGT $parameters]
-	    puts $results
 	    #create an entry in the ip_template_info dictionary for this template.
 	    #it will include these registers that were created (as this is the first for $template)
 	    #it will also include (ip_cores) this ip core's name for this quad + template
@@ -155,12 +156,14 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	    dict set ip_template_info ${channel_type} \
 		[dict create \
 		     "registers" ${results} \
+		     "toplevel_regs" [dict create $ip_name [dict get $results "toplevel_regs"]] \
 		     "ip_cores" [list ${ip_name}] \
 		     "core_channel_count" [list [dict get $results "channel_count"]] \
 		     "rx_clocks" [dict create $ip_name [dict create $quad_ID [dict get $results "rx_clocks"]]] \
 		     "tx_clocks" [dict create $ip_name [dict create $quad_ID [dict get $results "tx_clocks"]]]\ 
 
-		    ]	    
+		]
+	    puts "newly created: $ip_template_info"
 	}
     }
 }
@@ -322,11 +325,16 @@ proc BuildHAL {params} {
 	    }
 	}	
     }
-    #build a package for these clocks
+
+    ####################################
+    #build a package for the HAL to interface with top
+    #will include packages for clocks and serdes in and out
+    ####################################
     set HAL_PKG_filename "${apollo_root_path}/${autogen_path}/HAL/HAL_PKG.vhd"
-    GenRefclkPKG $clock_map $HAL_PKG_filename
+    GenRefclkPKG $clock_map [dict get $ip_info "toplevel_regs"] $HAL_PKG_filename
     puts "Adding $HAL_PKG_filename"
     read_vhdl $HAL_PKG_filename    
+    
     
     #figure out how many ip core types we have and how many channels of each type
     set type_count [dict size $ip_template_info]
@@ -429,6 +437,8 @@ proc BuildHAL {params} {
     puts -nonewline ${HAL_file} "                               writeMOSI : in  AXIwriteMOSI_array_t(${type_count} - 1 downto 0);\n"
     puts -nonewline ${HAL_file} "                               writeMISO : out AXIwriteMISO_array_t(${type_count} - 1 downto 0);\n"
     puts -nonewline ${HAL_file} "                             HAL_refclks : in  HAL_refclks_t;\n"
+    puts -nonewline ${HAL_file} "                        HAL_serdes_input : in  HAL_serdes_input_t;\n"
+    puts -nonewline ${HAL_file} "                       HAL_serdes_output : out HAL_serdes_output_t;\n"
     
     set AXI_array_index 0
     
@@ -557,6 +567,8 @@ proc BuildHAL {params} {
 		[lindex [dict get $ip_info "ip_cores"] $iCore] \
 		${channel_type} \
 		[dict get $registers "package_info" "records"] \
+		[dict get [dict get $ip_info "toplevel_regs"] \
+		     [lindex [dict get $ip_info "ip_cores"] $iCore] ] \
 		"current_single_index" \
 		"current_multi_index"
 

@@ -130,11 +130,15 @@ proc IP_CORE_MGT {params} {
     foreach {dict_key dict_value} $links {
 	lappend enabled_links $dict_key 
 	foreach {key value} $dict_value {
+	    
 	    if {$key == "RX"} {
 		dict append rx_clocks $dict_key $value
+		set gt_name "${GT_TYPE}${key}_${dict_key}"
 	    } elseif {$key == "TX"} {
 		dict append tx_clocks $dict_key $value
+		set gt_name "${GT_TYPE}${key}_${dict_key}"
 	    }
+	    puts $gt_name
 	}
     }
     dict append property_list CONFIG.CHANNEL_ENABLE $enabled_links
@@ -147,7 +151,9 @@ proc IP_CORE_MGT {params} {
     set_property -dict $property_list [get_ips ${device_name}]
     generate_target -force {all} [get_ips ${device_name}]
     synth_ip [get_ips ${device_name}]
-
+    #load xdc
+    read_xdc [get_files -filter "PARENT_COMPOSITE_FILE == ${xci_file}" "*/synth/${device_name}.xdc"]
+    
     #####################################
     #create a wrapper 
     #####################################
@@ -189,11 +195,13 @@ proc IP_CORE_MGT {params} {
 					   ]\
 		     ]
     #sort our registers into the six catagories above.
-    SortMGTregsIntoPackages ${data} records $rx_count [dict get $params "clkdata"] [dict get $params "userdata"]
+    set skipped_signals [SortMGTregsIntoPackages ${data} records $rx_count [dict get $params "clkdata"] [dict get $params "userdata"]]
+
     
     set base_name [dict get $interface "base_name"]    
     #start the final MGT_Info data structure
     set MGT_info [dict create                            \
+		      "toplevel_regs"   $skipped_signals \
 		      "channel_count"   $tx_count \
 		      "rx_clocks"  $rx_clocks \
 		      "tx_clocks"  $tx_clocks \
