@@ -2,6 +2,7 @@ source -notrace ${BD_PATH}/Cores/IP_CORE_MGT/HDL_gen_helpers.tcl
 source -notrace ${BD_PATH}/Cores/IP_CORE_MGT/MGT_helpers.tcl
 
 # return: mgt_info (old registers) (dictionary)
+#           - mgt_type: type of transceiver
 #           - channel_count (list): This specific call's channel count
 #           - package_info (dict):
 #             - name : name of the package
@@ -22,6 +23,8 @@ source -notrace ${BD_PATH}/Cores/IP_CORE_MGT/MGT_helpers.tcl
 #               - userdata_output (list of dicts): list of registers
 #               - clocks_input (list of dicts)   : list of registers
 #               - clocks_output (list of dicts)  : list of registers
+#               - drp_input
+#               - drp_output
 #               - channel_intput (list of dicts)
 #               - channel_output
 proc IP_CORE_MGT {params} {
@@ -138,7 +141,6 @@ proc IP_CORE_MGT {params} {
 		dict append tx_clocks $dict_key $value
 		set gt_name "${GT_TYPE}${key}_${dict_key}"
 	    }
-	    puts $gt_name
 	}
     }
     dict append property_list CONFIG.CHANNEL_ENABLE $enabled_links
@@ -182,6 +184,8 @@ proc IP_CORE_MGT {params} {
 		     "userdata_output" [dict create  "count" $tx_count "regs" [list] ]  \
 		     "clocks_input"    [dict create  "count" 1 "regs" [list] ]  \
 		     "clocks_output"   [dict create  "count" 1 "regs" [list] ]  \
+		     "drp_input"       [dict create  "count" $tx_count "regs" [list] ]  \
+		     "drp_output"      [dict create  "count" $tx_count "regs" [list] ]  \
 		     "channel_input"   [dict create  "count" $tx_count "regs" [list] ]  \
 		     "channel_output"  [dict create  "count" $tx_count "regs" [list \
 								 [ dict create \

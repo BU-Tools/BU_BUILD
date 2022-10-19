@@ -50,7 +50,8 @@ proc BuildMGTPackageInfo {base_name file_path records} {
     foreach record_type "common_input common_output \
        		       clocks_input clocks_output \
 		       channel_input channel_output \
-		       userdata_input userdata_output" {	    
+		       userdata_input userdata_output \
+		       drp_input drp_output" {	    
 
 	#create a VHDL record for this record type
 	set record_name [WritePackageRecord \
@@ -104,8 +105,6 @@ proc BuildMGTPackageInfo {base_name file_path records} {
 
 
 proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
-    puts $MGT_info
-
     set channel_count [dict get ${MGT_info} "channel_count"]
     
     set wrapper_file [open ${wrapper_filename} w]
@@ -147,11 +146,13 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
 	if { [string first "_input" $record_name] >= 0 } {
 	    set dir "in "
 	}
+	puts "$record\n\n\n"
 	set record_type [dict get $record "name"]
 	#write port line (channel and userdata are array types, others are normal)
 	puts -nonewline $wrapper_file "${line_ending}\n"
 	if { [string first "channel" ${record_name}] == 0 ||
-	     [string first "userdata" ${record_name}] == 0 } {
+	     [string first "userdata" ${record_name}] == 0 ||
+	     [string first "drp" ${record_name}] == 0} {
 	    #change from _t to _array_t
 	    set record_type [string map {"_t" "_array_t"} $record_type]
 	    append record_type "(${channel_count}-1 downto 0)"
@@ -203,7 +204,8 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
     foreach module "common_input common_output \
     	    	   clocks_input clocks_output \
 		   channel_input channel_output \
-		   userdata_input userdata_output" {
+		   userdata_input userdata_output \
+                   drp_input drp_output" {
 	foreach signal [dict get ${MGT_info} "package_info" "records" ${module} "regs"] {
 	    #pull needed values from the dictionary
 	    set name [dict get $signal "name"]
@@ -231,7 +233,8 @@ proc BuildMGTWrapperVHDL {base_name wrapper_filename MGT_info} {
 	    set LSB [dict get $signal "LSB"]
 
 	    if { [string first "channel" ${module}] == 0 ||
-		 [string first "userdata" ${module}] == 0 } {
+		 [string first "userdata" ${module}] == 0 ||
+		 [string first "drp" ${module}] == 0} {
 
 		if { $dir == "in "} {
 		    #the size of these are per channel,so we need to update MSB and LSB
@@ -351,7 +354,9 @@ proc GenerateMGTInstance {outfile ip_core channel_type records toplevel_signals 
     dict for {package_name package_struct} $records {
 	set end_index 0
 	set start_index 0
-	if { ([string first "channel_" $package_name] >= 0) || ([string first "userdata_" $package_name] >= 0) } {
+	if { ([string first "channel_" $package_name] >= 0) ||
+	     ([string first "drp_" $package_name] >= 0) ||
+	     ([string first "userdata_" $package_name] >= 0) } {
 	    #this is a multi record index (array)
 	    if { $update_multi_index > 0 } {
 		if { $update_multi_index != [dict get $package_struct "count"] } {

@@ -186,7 +186,6 @@ proc ParseVerilogComponent {filename} {
 			      "MSB"   $MSB \
 			      "LSB"   $LSB\
 			     ]
-	    puts [lindex $data end]
 	}
     }
     close $example_verilog_file
@@ -218,6 +217,16 @@ proc ParseVerilogComponent {filename} {
 #  - channel_output
 #proc SortMGTregsIntoPackages_UpdateEntry {registers_name }
 proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata userdata } {
+    set drp_rename_map [dict create \
+			    "drpaddr" "address" \
+			    "drpclk"  "clk" \
+			    "drpdi"   "wr_data" \
+			    "drpen"   "enable" \
+			    "drpwe"   "wr_enable" \
+			    "drpdo"   "rd_data" \
+			    "drprdy"  "rd_data_valid" \
+			]
+
     set skipped [list]
     upvar $reg_output_name registers
     foreach entry ${reg_input} {	
@@ -238,6 +247,31 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	    set found_signal 1
 	    lappend skipped ${entry}
 	}
+	if { ! ${found_signal} } {
+	    if {[string first "drp" $name] >= 0} {
+		#this is a per channel signal
+		#udpate these to divide by the number of channels
+		#Adjust width for per channel
+		set width [expr  ((1+$MSB - $LSB))]
+		if { [expr $width % $channel_count] == 0 } {
+		    #update the MSB for a single channel
+		    dict set entry "MSB" [expr ${width}/$channel_count -1]
+		} else {
+		    error "DRP signal $alias isn't a multiple of the channel count ($channel_count)"
+		}
+		#do a replace of the alias to make it compatible with our standard decoder
+		puts $alias
+		if {[dict exists ${drp_rename_map} $alias]} {
+		    dict set entry "alias" [dict get ${drp_rename_map} $alias]
+		}
+		puts $entry
+		dict with registers {
+		    dict lappend "drp_${dir}" "regs" ${entry}
+		}
+		set found_signal 1
+	    }
+	}
+	
 	if { ! ${found_signal} } {
 	    foreach username ${userdata} {	    
 		if { [string equal -nocase $alias $username] } {
