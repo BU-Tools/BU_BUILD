@@ -32,6 +32,8 @@ proc IP_CORE_MGT {params} {
     global apollo_root_path
     global autogen_path
 
+    puts "IP_CORE_MGT Params: $params"
+    
     #IPcore name
     set_required_values $params {device_name}
 
@@ -54,6 +56,14 @@ proc IP_CORE_MGT {params} {
     #dictionary of interface packages.  If this takes on the default value then we will build the packages and return them. 
 #    set_optional_values $params [dict create interface [dict create "base_name" ""] ]
 
+    set_optional_values $params [dict create \
+				     wrapper_path "${apollo_root_path}/${autogen_path}/cores/${device_name}/" \
+				     regmap_path "${apollo_root_path}/${autogen_path}/cores/${device_name}/"]
+
+    puts "wrapper_path: $wrapper_path"
+    puts "regmap_path: $regmap_path"
+
+    
     dict create GT_TYPEs {\
 			      "UNKNOWN" "\"0000\"" \
 			      "GTH"     "\"0001\"" \
@@ -213,15 +223,16 @@ proc IP_CORE_MGT {params} {
     
     #####################################
     #build packages file for this
-    puts "Building packages"
     if { [dict exists $interface "package_info"]} {
+	puts "Using previously packages"
 	#we already have this package, check that there isn't anything missing
 	#check that this registers matches the generate registers for common/channel in/out
 	dict append MGT_info "package_info" [dict get $interface "package_info"]
     } else {
 	#build this package
-	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
-	set package_info [BuildMGTPackageInfo $base_name $file_path $records]
+	puts "Building packages"
+#	set file_path "${apollo_root_path}/${autogen_path}/HAL/${base_name}/"
+	set package_info [BuildMGTPackageInfo $base_name $regmap_path $records]
 	dict append MGT_info "package_info" $package_info
     }
     
@@ -232,7 +243,7 @@ proc IP_CORE_MGT {params} {
 
     #####################################
     #write the warpper       
-    set wrapper_filename "${apollo_root_path}/${autogen_path}/cores/${device_name}/${device_name}_wrapper.vhd"
+    set wrapper_filename "${wrapper_path}/${device_name}_wrapper.vhd"
     BuildMGTWrapperVHDL $device_name $wrapper_filename $MGT_info
     read_vhdl ${wrapper_filename}
     

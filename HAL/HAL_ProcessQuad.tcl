@@ -124,6 +124,10 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	set parameters [dict set parameters "core" \
 			    ${core_parameters}]
 
+	set wrapper_path "${apollo_root_path}/${autogen_path}/cores/${ip_name}/"
+	set regmap_path "${apollo_root_path}/${autogen_path}/HAL/${ip_name}/"
+	set parameters [dict set parameters "wrapper_path" $wrapper_path ]
+	set parameters [dict set parameters "regmap_path" $regmap_path]
 	if { [dict exists $ip_template_info ${channel_type} ] } {
 	    puts "Template ${channel_type} already exists, using it\n\n\n\n"
 	    #this template's registers have already been worked out
@@ -146,6 +150,8 @@ proc HAL_process_quad {quad_channel_templates quad ip_template_info_name} {
 	} else {
 	    puts "Template ${channel_type} doesn't exists, creating it\n\n\n\n"
 	    set parameters [dict set parameters "interface" [dict create "base_name" $channel_type]]
+	    
+	    puts $parameters
 	    #Build the MGT core
 	    set results [IP_CORE_MGT $parameters]
 	    #create an entry in the ip_template_info dictionary for this template.

@@ -11,6 +11,7 @@ proc GenRefclkName {quad relative_clk} {
 }
 
 proc GenRefclkPKG {clock_map toplevel_signals filename} {
+    file mkdir [file dirname $filename]
     set outFile [open $filename w]    
     puts -nonewline ${outFile} "library IEEE;\n"
     puts -nonewline ${outFile} "use IEEE.std_logic_1164.all;\n\n"
