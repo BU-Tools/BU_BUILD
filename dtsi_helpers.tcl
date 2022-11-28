@@ -1,4 +1,8 @@
-set dtsi_output_path "${apollo_root_path}/kernel/hw"
+#set dtsi_output_path "${apollo_root_path}/kernel/hw"
+set dtsi_output_path "${apollo_root_path}/kernel/hw/${build_name}"
+
+
+
 
 set axi_memory_mappings_addr  [dict create]
 set axi_memory_mappings_range [dict create]
