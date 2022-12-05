@@ -123,8 +123,10 @@ proc BuildHAL {params} {
 	}
 	#figure out which DRP file we need for this interface
 	set mgt_type [dict get $registers "mgt_type"]
-	set drp_file "${BD_PATH}/Cores/IP_CORE_MGT/xml/DRP_USP_${mgt_type}.xml"
-	puts $drp_file
+	set drp_file_source "${BD_PATH}/Cores/IP_CORE_MGT/xml/DRP_USP_${mgt_type}.xml"
+	set drp_file "${apollo_root_path}/${autogen_path}/HAL/${channel_type}/DRP_USP_${mgt_type}.xml"
+	file copy $drp_file_source $drp_file
+	puts "Copying ${drp_file_source} to ${drp_file}"
 	
 	BuildTypeXML \
 	    "${apollo_root_path}/${autogen_path}/HAL/" \
@@ -133,7 +135,7 @@ proc BuildHAL {params} {
 	    [dict get $type_common_counts ${channel_type} ] \
 	    ${xml_file_common} \
 	    ${xml_file_channel} \
-	    $drp_file
+	    "${channel_type}/DRP_USP_${mgt_type}.xml"
 	    
 	
     }

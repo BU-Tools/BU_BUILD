@@ -38,49 +38,60 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
     }
 
     #round the address up to an even multiple of the channel size
-    if { [expr ${address} % 0x100] != 0} {
+    if { [expr ${address} % 0x800] != 0} {
 	set old_address $address
-	set address [expr int(ceil(${address}/0x100)) * 0x100]
+	set address [expr int(ceil(${address}/0x800)) * 0x800]
 	if {$address <= $old_address} {
-	    set address [expr ${address} + 0x100]
+	    set address [expr ${address} + 0x800]
 	}
     }
 
-    
+
     #process the channels for this type
     foreach quad_channel_count $channel_count {
 	#add each channels module
 	for {set iChan 0} {$iChan < $quad_channel_count} {incr iChan} {
 	    puts $out_file [format \
-				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\" module=\"file://%s\"/>\n" \
-				"CHANNEL_${iChan}" \
-				$address \
-				"${type_name}/${channel_xml_file}.xml" ]	    
-	    set address [expr ${address} + 0x100]
+				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\">" \
+			        "CHANNEL_${iChan}" \
+				$address]
+	    puts $out_file [format \
+				"    <node id=\"CONFIG\"   address=\"0x0000\" module=\"file://%s\"/>" \
+				"${type_name}/${channel_xml_file}.xml" ]
+	    puts $out_file [format \
+				"    <node id=\"DRP\"   address=\"0x400\" fwinfo=\"type=mem16_0x400\" module=\"file://%s\"/>\n" \
+				$transceiver_xml ]			    	    
+#	    puts $out_file [format \
+#				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\" module=\"file://%s\"/>\n" \
+#				"CHANNEL_${iChan}" \
+#				$address \
+#				"${type_name}/${channel_xml_file}.xml" ]
+	    puts $out_file "  </node>"
+	    set address [expr ${address} + 0x800]
 	}
     }
 
-    #round the address up to an even multiple of the channel size
-    if { [expr ${address} % 0x400] != 0} {
-	set old_address $address
-	set address [expr int(ceil(${address}/0x400)) * 0x400]
-	if {$address <= $old_address} {
-	    set address [expr ${address} + 0x400]
-	}
-    }
+#    #round the address up to an even multiple of the channel size
+#    if { [expr ${address} % 0x400] != 0} {
+#	set old_address $address
+#	set address [expr int(ceil(${address}/0x400)) * 0x400]
+#	if {$address <= $old_address} {
+#	    set address [expr ${address} + 0x400]
+#	}
+#    }
    
-    #process the DRPs for this type
-    foreach quad_channel_count $channel_count {
-	#add each channels module
-	for {set iChan 0} {$iChan < $quad_channel_count} {incr iChan} {
-	    puts $out_file [format \
-				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array;mem16_0x400\" module=\"file://%s\"/>\n" \
-				"DRP_${iChan}" \
-				$address \
-				$transceiver_xml ]	    
-	    set address [expr ${address} + 0x400]
-	}
-    }
+#    #process the DRPs for this type
+#    foreach quad_channel_count $channel_count {
+#	#add each channels module
+#	for {set iChan 0} {$iChan < $quad_channel_count} {incr iChan} {
+#	    puts $out_file [format \
+#				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=mem16_0x400\" module=\"file://%s\"/>\n" \
+#				"DRP_${iChan}" \
+#				$address \
+#				$transceiver_xml ]	    
+#	    set address [expr ${address} + 0x400]
+#	}
+#    }
 
     
 

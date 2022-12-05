@@ -245,7 +245,7 @@ proc HAL_wrapperGen { params
 		"common_input common_output" \
 		[dict get $registers "package_info" "records"] \
 		$old_current_single_index \
-		$old_current_single_index
+		$old_current_single_index	    
 
 	    ######################################################
 	    #connect up all the perchannel register signals
@@ -254,14 +254,17 @@ proc HAL_wrapperGen { params
 		"channel_input channel_output" \
 		[dict get $registers "package_info" "records"] \
 		$old_current_multi_index \
-		[expr $current_multi_index -1]
+		[expr $current_multi_index -1] \
+		[dict create "regex" {channel\([0-9]*\)} "replace" {\0.config}]
 
 	    ConnectUpMGTRegMap \
 		${HAL_file} $channel_type \
 		"drp_input drp_output" \
 		[dict get $registers "package_info" "records"] \
 		$old_current_multi_index \
-		[expr $current_multi_index -1]
+		[expr $current_multi_index -1] \
+		[dict create "regex" {drp(\([0-9]*\))} "replace" {channel\1.drp} ]
+
 
 	    
 	    #move to the next group of signals

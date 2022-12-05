@@ -225,6 +225,7 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 			    "drpwe"   "wr_enable" \
 			    "drpdo"   "rd_data" \
 			    "drprdy"  "rd_data_valid" \
+			    "drprst"  "reset" \
 			]
 
     set skipped [list]
