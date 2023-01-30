@@ -96,8 +96,8 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 	     [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
 	     [info exists REMOTE_C2C_64] 
 	 } {
-	    puts $dtsi_file "      		#address-cells = <2>;"
-	    puts $dtsi_file "                   #size-cells = <2>;"
+#	    puts $dtsi_file "      		#address-cells = <2>;"
+#	    puts $dtsi_file "                   #size-cells = <2>;"
 
 	    set addr_MSB  [string range ${addr} 8 [string length ${addr}]]
 	    if { [expr [string length $addr_MSB] == 0 ] } {
@@ -113,8 +113,8 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 
 	    puts $dtsi_file "      reg = <0x${addr_MSB} 0x${addr_LSB} 0x${range_MSB} 0x${range_LSB}>;"
 	} else {
-	    puts $dtsi_file "      		#address-cells = <1>;"
-	    puts $dtsi_file "                   #size-cells = <1>;"
+#	    puts $dtsi_file "      		#address-cells = <1>;"
+#	    puts $dtsi_file "                   #size-cells = <1>;"
 	    puts $dtsi_file "      reg = <0x${addr} 0x${addr_range}>;"
 	}
 	#add additional parameters
@@ -142,9 +142,13 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
 
     BUILD_AXI_ADDR_TABLE ${device_name}
 
-    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
-    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
-
+    set addr_segs [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]
+    if { [llength ${addr_segs} ] == 0 } {
+	puts "Cannont find address segments for $device_name"
+	error "Cannont find address segments for $device_name"
+    }
+    set addr [format %X [lindex [get_property OFFSET ${addr_segs}] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE ${addr_segs}] 0] ]
 
     #build dtsi file for this for later    
     if { ${manual_load_dtsi} == 0} {
@@ -160,7 +164,6 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     set dtsi_file [open ${dtsi_filename}  w+]
     
     set amba_path "amba_pl"
-    
     set is64bit false
     #determine if this is 32 or 64 bit encoding
     if { [expr [string length ${addr}] > 8 ] || 
@@ -177,15 +180,7 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     puts ${dtsi_file} "	fragment@0 {"
     puts ${dtsi_file} "	    target = <&${amba_path}>;"
     puts ${dtsi_file} "	    __overlay__ {"
-    if { $is64bit } {
-	puts ${dtsi_file} "        #address-cells = <2>;"
-	puts ${dtsi_file} "        #size-cells = <2>;"
-    } else {
-	puts ${dtsi_file} "        #address-cells = <1>;"
-	puts ${dtsi_file} "        #size-cells = <1>;"
-    }
     
-
     puts ${dtsi_file} "       axiSlave$device_name: $device_name@${addr} {"
     if { $is64bit } {
 	#figure out how to write 64 bit address in 32bit word chunks
