@@ -21,16 +21,17 @@ proc is_dict {value} {
     return [expr {[string is list $value] && ([llength $value]&1) == 0}]
 }
 
-proc set_required_values {params required_params} {
+proc set_required_values {params required_params {split_dict True}} {
     foreach key $required_params  {
         if {[dict exists $params $key]} {
             set val [dict get $params $key]
-            if {[is_dict $val]} {
+            if {$split_dict && [is_dict $val]} {
                 # handle dictionary arguments
-                # puts [dict size $val]
+                #puts [dict size $val]
                 foreach subkey [dict keys $val] {
                     upvar 1 $subkey x ;# tie the calling value to variable x
                     set x [subst [dict get $val $subkey]]
+		    #puts $x
                 }
             } else {
                 # handle non-dictionary arguments
@@ -38,7 +39,9 @@ proc set_required_values {params required_params} {
                 set x $val
             }
         } else {
-            error "Required parameter $key not found in:\n    $params"
+	    set error_message "Required parameter $key not found in:\n    $params"
+	    puts ${error_message}
+            error ${error_message}
         }}}
 
 proc set_optional_values {params optional_params} {
