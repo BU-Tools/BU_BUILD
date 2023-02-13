@@ -13,8 +13,16 @@ source ${BD_PATH}/HAL/HAL_helpers.tcl
 #  common_count:     Count of the number of total common blocks of this type
 #  common_xml_file:  XML file to use as a module for the common blocks
 #  channel_xml_file: XML file to use as a module for the channel
+#  clock_ip_map:     dictionary of refclocks actually used.
 #  transceiver_xml:  XML file to use as a module for the DRP interfaces
-proc BuildTypeXML {file_path type_name channel_count common_count common_xml_file channel_xml_file transceiver_xml} {
+proc BuildTypeXML {file_path \
+		       type_name \
+		       channel_count \
+		       common_count \
+		       common_xml_file \
+		       channel_xml_file \
+		       clock_ip_map \
+		       transceiver_xml} {
     global build_name
     global apollo_root_path
     global autogen_path
@@ -22,7 +30,23 @@ proc BuildTypeXML {file_path type_name channel_count common_count common_xml_fil
     
     set out_file [open "${file_path}/${type_name}_top.xml" w]
     puts $out_file "<node id=\"${type_name}\">\n"
-    set address 0
+
+    set address 0x0
+    
+    puts $out_file [format "  <node id=\"REFCLK\" address=\"0x%08X\">\n" $address]    
+    foreach ref_clk2 [dict get $clock_ip_map $type_name] {
+	#add each refclk2 to the xml
+	puts $out_file [format \
+			    "    <node id=\"freq_%s\"   address=\"0x%08X\" permission=\"r\" mask=\"0xFFFFFFFF\" parameters=\"Table=CLOCKING;Column=FREQ;Row=${ref_clk2};Status=3;Show=nz;Format=m_1_1_1000000_1_0_1\" />\n" \
+			    $ref_clk2 \
+			    $address \
+			   ]
+	set address [expr ${address} + 0x1]
+	
+    }
+    puts $out_file "  </node>\n"
+    
+    set address 0x20
 
     #process the commons for this type
     for {set quad_common_count 0} {$quad_common_count < $common_count} {incr quad_common_count} {

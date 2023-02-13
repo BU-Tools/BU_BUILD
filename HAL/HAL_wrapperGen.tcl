@@ -12,6 +12,7 @@ proc HAL_wrapperGen { params
 		      regmap_pkgs
 		      regmap_sizes
 		      clock_map
+		      clock_ip_map
 		  } {
     #Global build names
     global build_name
@@ -117,8 +118,22 @@ proc HAL_wrapperGen { params
 	puts ${HAL_file} [format \
 			      "  signal %40s : std_logic;" \
 			      "refclk_${clk_name}_2"]
+	puts ${HAL_file} [format \
+			      "  signal %40s : std_logic;" \
+			      "buf_refclk_${clk_name}_2"]
     }
     puts ${HAL_file} "" ; #new line
+
+    #add refclk frequency counter signals
+    pdict $clock_ip_map
+    dict for {channel_type ref_clk2_list} $clock_ip_map {
+	foreach ref_clk2 $ref_clk2_list {
+	    puts ${HAL_file} [format \
+			      "  signal %40s : std_logic_vector(31 downto 0);" \
+			      "freq_${ref_clk2}"]
+	}
+    }
+
     
     #Add wrapper signals
     dict for {channel_type ip_info} $ip_template_info {
@@ -169,7 +184,7 @@ proc HAL_wrapperGen { params
 	puts  ${HAL_file} "      IB    => HAL_refclks.refclk_${clk_name}_N"
 	puts  ${HAL_file} "      );"
 	puts  ${HAL_file} "      \n"
-
+     
     }
 
     #generate the regmap interfaces for this type and all wrappers for this type
@@ -193,6 +208,32 @@ proc HAL_wrapperGen { params
 	set current_single_index 0
 	set current_multi_index 0
 
+	#################################
+	#Monitor the refclocks
+	foreach ref_clk2 [dict get $clock_ip_map $channel_type] {
+	    puts ${HAL_file} "  BUFG_GT_inst_${ref_clk2} : BUFG_GT"
+	    puts ${HAL_file} "  port map ("
+	    puts ${HAL_file} "  	      O => buf_refclk_${clk_name}_2,"
+	    puts ${HAL_file} "  	      CE => '1',"
+	    puts ${HAL_file} "  	      CEMASK => '1',"
+	    puts ${HAL_file} "  	      CLR => '0',"
+	    puts ${HAL_file} "  	      CLRMASK => '1', "
+	    puts ${HAL_file} "  	      DIV => \"000\","
+	    puts ${HAL_file} "  	      I => refclk_${clk_name}_2"
+	    puts ${HAL_file} "        );"
+	    puts ${HAL_file} "    rate_counter_${ref_clk2}: entity work.rate_counter"
+	    puts ${HAL_file} "      generic map ("
+	    puts ${HAL_file} "        CLK_A_1_SECOND => 50000000)"
+	    puts ${HAL_file} "      port map ("
+	    puts ${HAL_file} "        clk_A         => clk_axi,"
+	    puts ${HAL_file} "        clk_B         => buf_refclk_${clk_name}_2,"
+	    puts ${HAL_file} "        reset_A_async => not reset_axi_n,"
+	    puts ${HAL_file} "        event_b       => '1',"
+	    puts ${HAL_file} "        rate          => freq_${ref_clk2});            "
+	    puts ${HAL_file} "    Mon_${channel_type}.REFCLK.freq_${ref_clk2} <= freq_${ref_clk2};"
+	}
+	
+	
 	#loop over all the quad IP cores for this type
 	for {set iCore 0} {$iCore < [dict get $type_common_counts $channel_type]} {incr iCore} {
 

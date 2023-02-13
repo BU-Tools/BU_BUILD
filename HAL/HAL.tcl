@@ -73,21 +73,26 @@ proc BuildHAL {params} {
 
     #figure out how many physical clocks we need to capture
     set clock_map [dict create]
+    set clock_ip_map [dict create]
     dict for {channel_type ip_info} $ip_template_info {
 	foreach clock_type "rx_clocks tx_clocks" {	    
 	    set clocks [dict get $ip_info $clock_type]
 	    dict for {ip ip_list} $clocks {;#{quad ip_clks} $clocks
 		dict for {quad clk_list} $ip_list {;#{ip clk_list} $ip_clks
 		    dict for {chan relative_clk} $clk_list {
-			#			set clk_name [GenRefclkName $quad $relative_clk $clk_list]
 			set clk_name [GenRefclkName $quad $relative_clk]
 			dict incr clock_map $clk_name
+			dict lappend clock_ip_map $channel_type $clk_name
 		    }
 		}
 	    }
 	}	
     }
 
+    dict for {type clk_list} $clock_ip_map {
+	dict set clock_ip_map $type [lsort -unique $clk_list]
+    }
+    
     ####################################
     #build a package for the HAL to interface with top
     #will include packages for clocks and serdes in and out
@@ -135,6 +140,7 @@ proc BuildHAL {params} {
 	    [dict get $type_common_counts ${channel_type} ] \
 	    ${xml_file_common} \
 	    ${xml_file_channel} \
+	    ${clock_ip_map} \
 	    "${channel_type}/DRP_USP_${mgt_type}.xml"
 	    
 	
@@ -161,7 +167,7 @@ proc BuildHAL {params} {
     HAL_wrapperGen $params $ip_template_info \
 	$type_count $type_channel_counts $type_common_counts \
 	$regmap_pkgs $regmap_sizes \
-	$clock_map
+	$clock_map $clock_ip_map
 
 
 
