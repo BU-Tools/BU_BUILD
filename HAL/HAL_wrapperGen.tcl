@@ -259,12 +259,22 @@ proc HAL_wrapperGen { params
 	    ##############################
 	    #connect up clocks
 	    foreach register [dict get $registers "package_info" "records" "clocks_input" "regs"] {
-		#find the appropriate clock dict for this ipcore
-		set current_clks [dict get $ip_info "rx_clocks" [lindex [dict get $ip_info "ip_cores"] $iCore]]
+
+		#find any freerun clocks and connect them to the axi clock
+		if { [string first "freerun" [dict get $register "name"] ] > 0  } {
+		    puts ${HAL_file} [format "    %s_clocks_input(%d).%s(0) <= clk_axi;\n" \
+					  $channel_type \
+					  $old_current_single_index \
+					  [dict get $register "alias"] \
+					 ]		    
+		    continue
+		}
+
 		
+		#find the appropriate clock dict for this ipcore
+		set current_clks [dict get $ip_info "rx_clocks" [lindex [dict get $ip_info "ip_cores"] $iCore]]		
 		
 		for {set iChanClk [dict get $register "LSB"]} {$iChanClk <= [dict get $register "MSB"]} {incr iChanClk} {
-		    #		    set refclk_name [GenRefclkName [lindex $current_clks 0] [lindex [lindex $current_clks 1] 1]]
 		    set refclk_name [GenRefclkName [lindex $current_clks 0] [lindex [lindex $current_clks 1] [expr 2*$iChanClk + 1]]]
 		    puts ${HAL_file} [format "    %s_clocks_input(%d).%s(%d) <= refclk_%s;\n" \
 					  $channel_type \

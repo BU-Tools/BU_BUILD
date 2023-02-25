@@ -314,6 +314,7 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	#process other signals
 	if { ! ${found_signal} } {
 	    if {[string first "refclk" $name] >= 0 || \
+		    [string first "freerun" $name] >= 0 || \
 		    ([string first "qpll" $name] >= 0 && \
 			 [string first "clk" $name] >= 0) } {
 		#this is a clock signal
