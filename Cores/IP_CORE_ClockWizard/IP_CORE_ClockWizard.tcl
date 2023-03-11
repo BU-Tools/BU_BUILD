@@ -9,6 +9,7 @@ proc IP_CORE_ClockWizard {params} {
     set_required_values $params {in_clk_freq_MHZ}
     set_required_values $params {out_clks} False
 
+    
     #build the core
     BuildCore $device_name clk_wiz
 
@@ -19,7 +20,7 @@ proc IP_CORE_ClockWizard {params} {
     #add parameters
     dict append property_list CONFIG.PRIM_SOURCE             ${in_clk_type}
     dict append property_list CONFIG.PRIM_IN_FREQ            ${in_clk_freq_MHZ}
-    dict append property_list CONFIG.PRIMARY_PORT            ${device_name}_[]
+    dict append property_list CONFIG.PRIMARY_PORT            ${device_name}_[string map {"." "_"} ${in_clk_freq_MHZ}]MHz
 
     #====================================
     #Parse the output clocks
@@ -48,6 +49,18 @@ proc IP_CORE_ClockWizard {params} {
     }
 
     dict append property_list CONFIG.NUM_OUT_CLKS $clk_count
+
+    #====================================
+    #Parse the config options
+    #====================================
+    if { [dict exists $params config_options] } {
+	dict for {param value} [dict get $params config_options] {
+	    puts "Clock Wizard: $param $value"
+	    dict append property_list CONFIG.${param} ${value}
+	}
+    }
+
+    puts "propery list: $property_list"
     
     #apply all the properties to the IP Core
     set_property -dict $property_list [get_ips ${device_name}]
