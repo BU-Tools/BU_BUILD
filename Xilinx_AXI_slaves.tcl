@@ -524,6 +524,7 @@ proc AXI_C2C_MASTER {params} {
 
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in          [get_bd_pins ${device_name}/aurora_pma_init_in]
+    make_bd_pins_external       -name ${device_name}_aurora_reset_pb             [get_bd_pins ${device_name}/aurora_reset_pb]
     #expose debugging signals
     make_bd_pins_external       -name ${device_name}_aurora_do_cc                [get_bd_pins ${device_name}/aurora_do_cc]
     make_bd_pins_external       -name ${device_name}_axi_c2c_config_error_out    [get_bd_pins ${device_name}/axi_c2c_config_error_out   ]
