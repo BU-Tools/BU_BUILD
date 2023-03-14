@@ -682,7 +682,7 @@ proc AXI_IP_BRAM {params} {
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/BRAM_PORTA] [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTA]
 
     #make the other port external to the PL
-    make_bd_intf_pins_external  [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
+    make_bd_intf_pins_external  -name ${BRAM_NAME}_PORTB [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
 
     puts "Added Xilinx blockram: $device_name"
 }

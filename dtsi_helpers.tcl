@@ -11,7 +11,8 @@ proc BUILD_AXI_ADDR_TABLE {device_name {new_name  ""} } {
     global axi_memory_mappings_range
     set addr_seg [get_bd_addr_segs -quiet *SEG*${device_name}]
     if {[string length ${addr_seg}] == 0} {
-	set addr_seg [get_bd_addr_segs -regexp -quiet ".*SEG.*${device_name}_(?:Control|Reg|Mem).*"]
+	#	set addr_seg [get_bd_addr_segs -regexp -quiet ".*SEG.*${device_name}_(?:Control|Reg|Mem).*"]
+	set addr_seg [get_bd_addr_segs -regexp -quiet ".*SEG_${device_name}_(?:Control|Reg|Mem).*"]
     }
     puts ${addr_seg}
     if {[string length ${addr_seg}] >0} {
@@ -70,8 +71,8 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 
 #    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
 #    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs *SEG*${device_name}_*]] 0] ]
-    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
-    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]] 0] ]
+    set addr [format %X [lindex [get_property OFFSET [get_bd_addr_segs -regex .*SEG_${device_name}_(Reg|Control|Mem0).*]] 0] ]
+    set addr_range [format %X [lindex [get_property RANGE [get_bd_addr_segs -regex .*SEG_${device_name}_(Reg|Control|Mem0).*]] 0] ]
 
     #make sure the output folder exists
     file mkdir ${dtsi_output_path}
@@ -142,7 +143,7 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
 
     BUILD_AXI_ADDR_TABLE ${device_name}
 
-    set addr_segs [get_bd_addr_segs -regex .*SEG.*${device_name}_(Reg|Control|Mem0).*]
+    set addr_segs [get_bd_addr_segs -regex .*SEG_${device_name}_(Reg|Control|Mem0).*]
     if { [llength ${addr_segs} ] == 0 } {
 	puts "Cannont find address segments for $device_name"
 	error "Cannont find address segments for $device_name"
