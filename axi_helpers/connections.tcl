@@ -1,4 +1,4 @@
-source -notrace ${BD_PATH}/dtsi_helpers.tcl
+source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 
 
 #This function automates the adding of a AXI slave that lives outside of the bd.

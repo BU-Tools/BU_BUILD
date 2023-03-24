@@ -1,4 +1,4 @@
-source -notrace ${BD_PATH}/dtsi_helpers.tcl
+source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 
 #================================================================================
 #Add an AXI master port to the BD from the PL HDL

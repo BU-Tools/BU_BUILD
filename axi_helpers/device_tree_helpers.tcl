@@ -1,9 +1,9 @@
-set dtsi_output_path "${apollo_root_path}/kernel/hw"
+global dtsi_output_path ; set dtsi_output_path "${apollo_root_path}/kernel/hw"
 
-set axi_memory_mappings_addr  [dict create]
-set axi_memory_mappings_range [dict create]
+global axi_memory_mappings_addr;  set axi_memory_mappings_addr  [dict create]
+global axi_memory_mappings_range; set axi_memory_mappings_range [dict create]
 
-set default_device_tree_additions "        compatible = \"generic-uio\";\n        label = \"\$device_name\";\n        linux,uio-name = \"\$device_name\";\n"
+global default_device_tree_additions; set default_device_tree_additions "        compatible = \"generic-uio\";\n        label = \"\$device_name\";\n        linux,uio-name = \"\$device_name\";\n"
 
 #Find this device and add its AXI address and range to .h and .vhd files
 proc BUILD_AXI_ADDR_TABLE {device_name {new_name  ""} } {
