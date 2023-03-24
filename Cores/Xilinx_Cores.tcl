@@ -76,6 +76,11 @@ source -notrace ${BD_PATH}/Cores/IP_CORE_FIFO/IP_CORE_FIFO.tcl
 #################################################################################
 source -notrace ${BD_PATH}/Cores/IP_CORE_ClockWizard/IP_CORE_ClockWizard.tcl
 
+#################################################################################
+## Build xilinx sys reset ip
+#################################################################################
+source -notrace ${BD_PATH}/Cores/IP_CORE_SYS_RESET/IP_CORE_SYS_RESET.tcl
+
 ##proc Build_iBERT {params} {
 ##    global build_name
 ##    global apollo_root_path
