@@ -5,6 +5,11 @@ global axi_memory_mappings_range; set axi_memory_mappings_range [dict create]
 
 global default_device_tree_additions; set default_device_tree_additions "        compatible = \"generic-uio\";\n        label = \"\$device_name\";\n        linux,uio-name = \"\$device_name\";\n"
 
+proc clean_version {} {
+    return [string range [version -short] 0 [expr [expr [string last _ [version -short]] > 0 ? [string last _ [version -short]] : [string length [version -short]] ] -1]]
+
+}
+
 #Find this device and add its AXI address and range to .h and .vhd files
 proc BUILD_AXI_ADDR_TABLE {device_name {new_name  ""} } {
     global axi_memory_mappings_addr
@@ -79,7 +84,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 
     if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || 
 	 [info exists REMOTE_C2C] || 
-	 [expr [package vcompare [version -short] 2020.2 ] >=0] } {    
+	 [expr [package vcompare [clean_version] 2020.2 ] >=0] } {    
 	#build dtsi file for this for later    
 	set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_chunk" w+]
 	

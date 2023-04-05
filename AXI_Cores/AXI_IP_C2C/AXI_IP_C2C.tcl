@@ -14,7 +14,7 @@ proc AXI_IP_C2C {params} {
     set_optional_values $params {singleend_refclk False}
     set_optional_values $params {speed 5}
 
-    #create the actual C2C master
+    #create the actual C2C core
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_chip2chip }] $device_name
     set_property CONFIG.C_AXI_STB_WIDTH     {4}     [get_bd_cells $device_name]
     set_property CONFIG.C_AXI_DATA_WIDTH    {32}    [get_bd_cells $device_name]
@@ -88,5 +88,5 @@ proc AXI_IP_C2C {params} {
     
 
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
-    puts "Added C2C master: $device_name"
+    puts "Added C2C ip: $device_name"
 }
