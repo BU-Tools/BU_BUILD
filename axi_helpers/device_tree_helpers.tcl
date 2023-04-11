@@ -5,10 +5,7 @@ global axi_memory_mappings_range; set axi_memory_mappings_range [dict create]
 
 global default_device_tree_additions; set default_device_tree_additions "        compatible = \"generic-uio\";\n        label = \"\$device_name\";\n        linux,uio-name = \"\$device_name\";\n"
 
-proc clean_version {} {
-    return [string range [version -short] 0 [expr [expr [string last _ [version -short]] > 0 ? [string last _ [version -short]] : [string length [version -short]] ] -1]]
-
-}
+source ${BD_PATH}/utils/vivado_version.tcl
 
 #Find this device and add its AXI address and range to .h and .vhd files
 proc BUILD_AXI_ADDR_TABLE {device_name {new_name  ""} } {

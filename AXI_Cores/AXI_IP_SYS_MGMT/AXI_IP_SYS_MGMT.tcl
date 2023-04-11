@@ -9,6 +9,10 @@ proc AXI_IP_SYS_MGMT {params} {
     #create system management AXIL lite slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == system_management_wiz }] ${device_name}
 
+    #setup clocking
+    set_property CONFIG.DCLK_FREQUENCY [expr ${axi_freq}/1000000.0] [get_bd_cells ${device_name}]
+
+    
     #disable default user temp monitoring
     set_property CONFIG.USER_TEMP_ALARM {false}        [get_bd_cells ${device_name}]
     #add i2c interface
