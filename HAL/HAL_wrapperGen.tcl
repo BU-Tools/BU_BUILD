@@ -32,7 +32,7 @@ proc HAL_wrapperGen { params
     puts -nonewline ${HAL_file} "use ieee.std_logic_1164.all;\n\n"
     puts -nonewline ${HAL_file} "use work.axiRegPkg.all;\n"
     #add the clocks package
-    puts -nonewline ${HAL_file} "use work.hal_pkg.all;\n\n\n"
+    puts -nonewline ${HAL_file} "use work.hal_top_io_pkg.all;\n\n\n"
 
 
     #Add all the packages we will need for the IP Core wrappers   

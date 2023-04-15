@@ -33,17 +33,17 @@ proc ConnectUpMGTReg {outfile channel_type record_type index register name_regex
 			    ${index} \
 			    "${alias}" ]
 	#only update the regmap side of the copy
-	puts $right_name
-	puts [dict size $name_regex]
-	puts $name_regex
+	#puts $right_name
+	#puts [dict size $name_regex]
+	#puts $name_regex
 	if { [dict size $name_regex] == 2 } {
 	    set right_name [regsub \
 			       [dict get $name_regex "regex"] \
 			       $right_name \
 			       [dict get $name_regex "replace"]]
 	}
-	puts $right_name
-	puts "\n\n"
+	#puts $right_name
+	#puts "\n\n"
 
     } else {
 	set right_name  [format "%s(%d).%s%s" \

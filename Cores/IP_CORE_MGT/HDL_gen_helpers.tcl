@@ -237,7 +237,6 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 	set MSB   [dict get ${entry} "MSB"]
 	set LSB   [dict get ${entry} "LSB"]
 
-	puts "Sort start: $name $alias $dir $MSB $LSB"
 	
 	# isolate specially requested userdata signals
 	set found_signal 0
@@ -261,11 +260,9 @@ proc SortMGTregsIntoPackages { reg_input reg_output_name channel_count clkdata u
 		    error "DRP signal $alias isn't a multiple of the channel count ($channel_count)"
 		}
 		#do a replace of the alias to make it compatible with our standard decoder
-		puts $alias
 		if {[dict exists ${drp_rename_map} $alias]} {
 		    dict set entry "alias" [dict get ${drp_rename_map} $alias]
 		}
-		puts $entry
 		dict with registers {
 		    dict lappend "drp_${dir}" "regs" ${entry}
 		}
