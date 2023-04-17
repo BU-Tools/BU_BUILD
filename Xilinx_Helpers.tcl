@@ -42,7 +42,3 @@ proc Generate_Global_package {} {
     #load the new VHDL file
     read_vhdl $filename
 }
-
-
-
-
