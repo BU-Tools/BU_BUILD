@@ -1,5 +1,7 @@
 source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 
+
+
 #================================================================================
 #Add an AXI master port to the BD from the PL HDL
 #================================================================================
@@ -303,3 +305,45 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
 }
 
 
+#================================================================================
+#Add an AXI master port to the BD from the PL HDL
+#Expand an interconnect
+#Connect the two
+#================================================================================
+#Required values:
+#  interconnect: Name of the interconnect we will connect to
+#  name:         Name of the interface to make
+#  axi_clk:      Name of the clock to use for this interface
+#  axi_rstn:     Name of the reset to use for this interface
+#  axi_freq:     Frequncy to set for the clk+bus interface
+#Optional values:
+#  type:       Type of interface (default: AXI4LITE)
+#  addr_width: Width of the AXI interface's address bus
+#  data_width: Width of the AXI interfaces's data bus
+#================================================================================
+proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} { 
+
+    # required values
+    set_required_values $params {interconnect device_name axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create type AXI4LITE addr_width 32 data_width 32]
+
+    dict append params name [dict get $params device_name]
+    
+    #create a master from the PL
+    AXI_PL_MASTER_PORT $params
+    
+    #Add a master to the interconnect
+    EXPAND_AXI_INTERCONNECT $params
+
+    puts "Expanded axi interconnect signal names"
+    puts $AXI_MASTER_BUS
+    puts $AXI_MASTER_CLK
+    puts $AXI_MASTER_RSTN
+    
+    #connect the two    
+    AXI_BUS_CONNECT [dict get $params device_name] $AXI_MASTER_BUS "m"
+    connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_clk]   [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_CLK]
+    connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_rstn ] [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_RSTN]
+}    
