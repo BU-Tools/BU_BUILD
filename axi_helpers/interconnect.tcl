@@ -68,7 +68,6 @@ proc EXPAND_AXI_INTERCONNECT {params} {
     set_required_values $params {interconnect}    
     
     #get the current size
-    #    set current_master_count [get_property CONFIG.NUM_SI [get_bd_cells $interconnect]]
     set current_master_count $AXI_INTERCONNECT_MASTER_SIZE($interconnect)
 
     #update the size
@@ -341,11 +340,6 @@ proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} {
     #Add a master to the interconnect
     EXPAND_AXI_INTERCONNECT $params
 
-    puts "Expanded axi interconnect signal names"
-    puts $AXI_MASTER_BUS
-    puts $AXI_MASTER_CLK
-    puts $AXI_MASTER_RSTN
-    
     #connect the two    
     AXI_BUS_CONNECT [dict get $params device_name] $AXI_MASTER_BUS "m"
     connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_clk]   [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_CLK]

@@ -127,10 +127,8 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
 
     #handle destinations
     GET_BD_PINS_OR_PORTS dest_clk $axi_clk
-    puts "DEST clk: \"$dest_clk\""
 
     GET_BD_PINS_OR_PORTS dest_rstn $axi_rstn
-    puts "DEST rstn: \"$dest_rstn\""
 
 
     #handle clock source
@@ -147,7 +145,6 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
     if { [string trim $src_clk] == "" } {
 	GET_BD_PINS_OR_PORTS src_clk $device_name/${ms_type}_axi_aclk
     }
-    puts "SRC clk: \"$src_clk\""
 
     #handle reset source
     GET_BD_PINS_OR_PORTS src_rstn  $device_name/${ms_type}_axi_aresetn
@@ -163,7 +160,6 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
     if { [string trim $src_rstn] == "" } {
 	GET_BD_PINS_OR_PORTS src_rstn $device_name/${ms_type}_axi_aclk
     }
-    puts "SRC rstn: \"$src_rstn\""
     
     connect_bd_net -quiet  $src_clk $dest_clk
     connect_bd_net -quiet  $src_rstn $dest_rstn
@@ -176,27 +172,21 @@ proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME {ms_type "s"}} {
     if { [string trim $dest] == "" } {
 	set dest [get_bd_intf_ports  $AXIM_PORT_NAME]
     }
-    puts "DEST: \"$dest\""
-
-    puts "$device_name ${MS_TYPE}"
-    puts [get_bd_intf_ports -quiet *${device_name}*]
-    puts [get_bd_intf_pins  -quiet *${device_name}*]
     
-    [GET_BD_PINS_OR_PORTS src $device_name/${MS_TYPE}_AXI]
+    GET_BD_PINS_OR_PORTS src $device_name/${MS_TYPE}_AXI
     if { [string trim $src] == "" } {
-       [GET_BD_PINS_OR_PORTS src $device_name/${ms_type}_axi_lite]
+	GET_BD_PINS_OR_PORTS src $device_name/${ms_type}_axi_lite
     }
     if { [string trim $src] == "" } {
-	[GET_BD_PINS_OR_PORTS src $device_name/*AXI*LITE*]
+	GET_BD_PINS_OR_PORTS src $device_name/*AXI*LITE*
     }
     if { [string trim $src] == "" } {
-        [GET_BD_PINS_OR_PORTS src  $device_name/${MS_TYPE}*AXI*]
+        GET_BD_PINS_OR_PORTS src  $device_name/${MS_TYPE}*AXI*
     }
     if { [string trim $src] == "" } {
-	[GET_BD_PINS_OR_PORTS src  $device_name]
+	GET_BD_PINS_OR_PORTS src  $device_name
     }
 
-    puts "SRC: \"$src\""
     
     connect_bd_intf_net ${src} -boundary_type upper ${dest}
     
