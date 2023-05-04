@@ -44,15 +44,14 @@ proc IP_CORE_MGT {params} {
     set_required_values $params {protocol} False
     set_required_values $params {links} False
     set_required_values $params {GT_TYPE}
-    set_required_values $params {interface} False
+    set_required_values $params {interface} False    
 
-#    set_optional_values $params [dict create userdata [list]]
     
     #optional configuration of what is in the IP core vs the example design
     set_optional_values $params [dict create core {LOCATE_TX_USER_CLOCKING CORE LOCATE_RX_USER_CLOCKING CORE LOCATE_RESET_CONTROLLER CORE LOCATE_COMMON EXAMPLE_DESIGN}]
-
+    set_other_values $params optional False
+    
     #dictionary of interface packages.  If this takes on the default value then we will build the packages and return them. 
-#    set_optional_values $params [dict create interface [dict create "base_name" ""] ]
 
     dict create GT_TYPEs {\
 			      "UNKNOWN" "\"0000\"" \
@@ -101,7 +100,7 @@ proc IP_CORE_MGT {params} {
 			    txprbssel_in txdiffctrl_in drpaddr_in drpclk_in \
 			    drpdi_in drpen_in drprst_in drpwe_in drpdo_out \
 			    drprdy_out rxctrl2_out txctrl2_in loopback_in]    
-    if {[dict exists $params optional]} {
+    if {[dict exists $params optional_ports]} {
 	set additional_optional_ports [dict get $params optional]
 	set optional_ports [concat $optional_ports $additional_optional_ports]
 	puts "Adding optional values: $additional_optional_ports"
@@ -110,6 +109,13 @@ proc IP_CORE_MGT {params} {
     }
     dict append property_list CONFIG.ENABLE_OPTIONAL_PORTS $optional_ports
 
+    #####################################
+    #optional
+    puts $optional
+    foreach {key value} $optional {	
+	puts "Adding option CONFIG.${key} $value"
+	dict append property_list CONFIG.${key} $value
+    }
 
     #####################################
     #clocking
