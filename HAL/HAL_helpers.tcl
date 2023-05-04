@@ -14,7 +14,7 @@ proc GenRefclkPKG {clock_map toplevel_signals filename} {
     set outFile [open $filename w]    
     puts -nonewline ${outFile} "library IEEE;\n"
     puts -nonewline ${outFile} "use IEEE.std_logic_1164.all;\n\n"
-    puts -nonewline ${outFile} "package HAL_PKG is\n"
+    puts -nonewline ${outFile} "package HAL_TOP_IO_PKG is\n"
 
     puts -nonewline ${outFile} "type HAL_refclks_t is record\n"    
     dict for {clk_name count} $clock_map {
@@ -43,7 +43,7 @@ proc GenRefclkPKG {clock_map toplevel_signals filename} {
     }
 
 
-    puts -nonewline ${outFile} "end package HAL_PKG;\n"
+    puts -nonewline ${outFile} "end package HAL_TOP_IO_PKG;\n"
     close $outFile
     return $filename
 }

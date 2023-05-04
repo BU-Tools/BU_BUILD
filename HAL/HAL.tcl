@@ -4,6 +4,7 @@ source ${BD_PATH}/Regmap/RegisterMap.tcl
 source ${BD_PATH}/Cores/Xilinx_Cores.tcl
 source ${BD_PATH}/HAL/HAL_helpers.tcl
 source ${BD_PATH}/HAL/HAL_wrapperGen.tcl
+source ${BD_PATH}/HAL/GenHALPKG.tcl
 
 #This function builds all the IP cores reqeuested for the configuration of
 #one FPGA Quad
@@ -97,12 +98,12 @@ proc BuildHAL {params} {
     #build a package for the HAL to interface with top
     #will include packages for clocks and serdes in and out
     ####################################
-    set HAL_PKG_filename "${apollo_root_path}/${autogen_path}/HAL/HAL_PKG.vhd"
-    GenRefclkPKG $clock_map [dict get $ip_info "toplevel_regs"] $HAL_PKG_filename
-    puts "Adding $HAL_PKG_filename"
-    read_vhdl $HAL_PKG_filename    
-    
-    
+    set HAL_TOP_IO_PKG_filename "${apollo_root_path}/${autogen_path}/HAL/HAL_TOP_IO_PKG.vhd"
+    GenRefclkPKG $clock_map [dict get $ip_info "toplevel_regs"] $HAL_TOP_IO_PKG_filename
+    puts "Adding $HAL_TOP_IO_PKG_filename"
+    read_vhdl $HAL_TOP_IO_PKG_filename    
+
+        
     #figure out how many ip core types we have and how many channels of each type
     set type_count [dict size $ip_template_info]
     set type_channel_counts [dict create]
@@ -112,6 +113,16 @@ proc BuildHAL {params} {
 	dict set type_channel_counts $channel_type [ladd [dict get $ip_info "core_channel_count" ] ]
 	dict set type_common_counts $channel_type [llength [dict get $ip_info "core_channel_count" ] ]
     }
+
+
+    ####################################
+    #build a package for the HAL to store link counts
+    ####################################
+    set HAL_PKG_filename "${apollo_root_path}/${autogen_path}/HAL/HAL_PKG.vhd"
+    GenHALPKG $HAL_PKG_filename $type_channel_counts
+    puts "Adding $HAL_PKG_filename"
+    read_vhdl $HAL_PKG_filename    
+
 
     
     #build the final (top level) xml files for each channel_type
@@ -164,6 +175,9 @@ proc BuildHAL {params} {
 	lappend regmap_pkgs ${channel_type}_Ctrl
     }
 
+
+
+    #generate the final hal wrapper
     HAL_wrapperGen $params $ip_template_info \
 	$type_count $type_channel_counts $type_common_counts \
 	$regmap_pkgs $regmap_sizes \

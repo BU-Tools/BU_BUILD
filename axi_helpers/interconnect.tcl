@@ -175,9 +175,13 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     global AXI_INTERCONNECT_SIZE
     global AXI_INTERCONNECT_MASTER_SIZE
     
-    #create an axi interconnect 
+    #create an axi interconnect
+    global $name
+    upvar 0 $name AXI_INTERCONNECT_NAME
     set AXI_INTERCONNECT_NAME $name
 
+    
+    
     #assert master_connections and master_clocks are the same size
     if {[llength axi_masters] != [llength axi_master_clks] || \
             [llength axi_masters] != [llength axi_master_rstns]} then {
@@ -347,3 +351,55 @@ proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} {
     connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_clk]   [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_CLK]
     connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_rstn ] [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_RSTN]
 }    
+
+
+#================================================================================
+#Add an CLK input to the BD
+#================================================================================
+#Required values:
+#  name:           Name of the interface to make (will be forced to all caps)
+#                  This will have _CLK appended to it. 
+#  freq:           Frequncy to set for the clk+bus interface
+#optional values:
+#  global_signal:  Make this a global signal in the TCL (default false)
+#  add_rst_n:      Add a reset_n signal to go along with this clock
+#================================================================================
+proc ADD_PL_CLK {params} {     
+    # required values
+    set_required_values $params {name freq}
+
+    # optional values
+    set_optional_values $params [dict create global_signal false add_rst_n false]
+
+    
+    #create this clock
+    set clk_name [string toupper ${name}_clk] 
+    set clk_freq [string toupper ${name}_clk_freq]
+
+    
+    create_bd_port -q -dir I -type clk $clk_name
+    set_property CONFIG.FREQ_HZ $freq  [get_bd_ports $clk_name]
+
+    if { $global_signal } {
+	global $clk_name
+	upvar 0 $clk_name local_clk_name
+	set local_clk_name $clk_name
+	global $clk_freq
+	upvar 0 $clk_freq local_clk_freq
+	set local_clk_freq $freq
+    }
+
+    
+    #check if we are also making a reset
+    if { $add_rst_n } {
+	set rst_n_name [string toupper ${name}_rstn]
+	create_bd_port -q -dir I -type rst $rst_n_name
+	set_property CONFIG.ASSOCIATED_RESET $rst_n_name [get_bd_ports $clk_name]
+	if { $global_signal } {
+	    global $rst_n_name
+	    upvar 0 $rst_n_name local_rst_n_name
+	    set local_rst_n_name $rst_n_name
+	}
+
+    }
+}

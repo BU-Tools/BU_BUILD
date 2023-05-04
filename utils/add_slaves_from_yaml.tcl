@@ -19,13 +19,27 @@ proc huddle_to_bd {huddle parent} {
             eval $command {$pairs}
 	    
         }
-        if { 0 == [string compare "dict" [huddle type [huddle get $huddle $key]]]} {
+	if { 0 == [string compare "INCLUDE_FILE" $key] } {
+	    #this is an include directive, load the file and move forward
+	    set include_huddle [huddle gets $huddle $key]
+	    puts "loading sub-YAML file: $include_huddle"
+	    yaml_to_bd $include_huddle
+            
+	}
+	if { 0 == [string compare "dict" [huddle type [huddle get $huddle $key]]]} {
             huddle_to_bd [huddle get $huddle $key] $key
-        }}}
+        }
+    }
+}
 
 proc yaml_to_bd {yaml_file} {
-    yaml_to_control_sets $yaml_file
-    set my_huddle [yaml::yaml2huddle -file $yaml_file]
+    global build_name
+    global apollo_root_path
+    global autogen_path
+    global BD_PATH
+    
+    yaml_to_control_sets [subst $yaml_file]
+    set my_huddle [yaml::yaml2huddle -file [subst $yaml_file]]
 
     if [catch {set cores_huddle [huddle get $my_huddle "CORES"]}] {	
 	puts "No IP Cores found"
@@ -42,11 +56,18 @@ proc yaml_to_bd {yaml_file} {
 }
 
 proc yaml_to_control_sets {yaml_file} {
-    set dict [dict get [yaml::yaml2dict -file $yaml_file] "AXI_CONTROL_SETS"]
-    puts "Adding AXI Control Sets"
-    foreach key [dict keys $dict] {
-        global $key
-        upvar 0 $key x ;# tie the calling value to variable x
-        set x [dict get $dict $key]
+    global build_name
+    global apollo_root_path
+    global autogen_path
+    global BD_PATH
+
+    if { [dict exists [yaml::yaml2dict -file [subst $yaml_file]] "AXI_CONTROL_SETS"] } {
+	set dict [dict get [yaml::yaml2dict -file [subst $yaml_file]] "AXI_CONTROL_SETS"]
+	puts "Adding AXI Control Sets"
+	foreach key [dict keys $dict] {
+	    global $key
+	    upvar 0 $key x ;# tie the calling value to variable x
+	    set x [dict get $dict $key]
+	}
     }
 }
