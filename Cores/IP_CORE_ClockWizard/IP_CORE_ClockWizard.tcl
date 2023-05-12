@@ -28,7 +28,7 @@ proc IP_CORE_ClockWizard {params} {
     #set the count of probes
     set clk_count 0
     #build each probe
-    dict for {clk clk_freq} $out_clks {
+    dict for {clk settings} $out_clks {
 	#set the probe count to the max in the list
 	if { $clk > $clk_count } {	    
 	    set clk_count $clk
@@ -36,11 +36,32 @@ proc IP_CORE_ClockWizard {params} {
 	if {$clk == 0} {
 	    error "clk == 0 is not allowed, numbering starts at 1"
 	}
+	
+	if { ! [is_dict $settings] } {
+	    #set out clock name (settings as it is the only value)
+	    dict append property_list CONFIG.CLK_OUT${clk}_PORT clk_[string map {"." "_"} ${settings}]MHz
+	    #set out clock frequency
+	    dict append property_list CONFIG.CLKOUT${clk}_REQUESTED_OUT_FREQ ${settings}
+	} else {
+	    #this is a dictionary, so parse things differently
 
-	#set out clock name
-	dict append property_list CONFIG.CLK_OUT${clk}_PORT clk_[string map {"." "_"} ${clk_freq}]MHz
-	#set out clock frequency
-	dict append property_list CONFIG.CLKOUT${clk}_REQUESTED_OUT_FREQ ${clk_freq}
+	    #get the frequency
+	    if { [dict exists $settings "freq" ] } {
+		#set out clock name
+		set clk_freq [dict get $settings "freq"]
+		dict append property_list CONFIG.CLK_OUT${clk}_PORT clk_[string map {"." "_"} ${clk_freq}]MHz
+		dict append property_list CONFIG.CLKOUT${clk}_REQUESTED_OUT_FREQ ${clk_freq}
+	    } else {
+		error "clk $clk is missing the frequency"
+	    }
+
+	    #get any options
+	    if { [dict exists $settings "options" ] } {
+		dict for {option value} [dict get $settings "options"] {
+		    dict append property_list CONFIG.CLKOUT${clk}_${option} $value
+		}
+	    }
+	}	
 
 	#set the clock to be used (clk 1 is assumed used)
 	if {$clk > 1} {
