@@ -211,7 +211,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     for {set iSlave 0} {$iSlave < ${AXI_MASTER_COUNT}} {incr iSlave} {
 	startgroup
 	#create a params list for EXPAND_AXI_INTERCONNECT
-	EXPAND_AXI_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME]
+#	EXPAND_AXI_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME]
 
 	#get the current name
         set slaveM [lindex $axi_masters      ${iSlave}]
@@ -219,19 +219,22 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
         set slaveR [lindex $axi_master_rstns ${iSlave}]
 
 	
-        # Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
-        connect_bd_net -q [get_bd_pins  $slaveC] [get_bd_pins $AXI_MASTER_CLK]
-	connect_bd_net -q [get_bd_ports $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+	CONNECT_AXI_MASTER_TO_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME axi_master $slaveM axi_clk ${slaveC} axi_rstn ${slaveR}]
 
-        # Connect resets
-        connect_bd_net -q [get_bd_pins  $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-	connect_bd_net -q [get_bd_ports $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-
-        #connect up this interconnect's slave interface to the master $iSlave driving it
-        connect_bd_intf_net [get_bd_intf_pins $slaveM] \
-	    -boundary_type upper                       \
-	    [get_bd_intf_pins $AXI_MASTER_BUS]
-        endgroup	
+	
+#        # Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
+#        connect_bd_net -q [get_bd_pins  $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+#	connect_bd_net -q [get_bd_ports $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+#
+#        # Connect resets
+#        connect_bd_net -q [get_bd_pins  $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
+#	connect_bd_net -q [get_bd_ports $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
+#
+#        #connect up this interconnect's slave interface to the master $iSlave driving it
+#        connect_bd_intf_net [get_bd_intf_pins $slaveM] \
+#	    -boundary_type upper                       \
+#	    [get_bd_intf_pins $AXI_MASTER_BUS]
+#        endgroup	
     }
 
     #zero the number of slaves connected to this interconnect
@@ -257,8 +260,8 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
     global AXI_INTERCONNECT_SIZE
     
     # required values (False mean's don't break apart dictionaries/lists)
-    set_required_values $params {device_name axi_clk axi_rstn parent master_clk master_rstn} False
-
+    set_required_values $params {device_name parent master_clk master_rstn axi_clk axi_rstn } False
+    
     #verify the length of parnet,master_clk, and master_rstn are the same
     if { [llength $parent] != [llength $master_clk] || \
             [llength $parent] != [llength $master_rstn]} then {
@@ -381,6 +384,7 @@ proc ADD_PL_CLK {params} {
 	global $clk_freq
 	upvar 0 $clk_freq local_clk_freq
 	set local_clk_freq $freq
+	Add_Global_Constant ${clk_freq} integer ${freq}
     }
 
     

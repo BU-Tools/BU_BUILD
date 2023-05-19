@@ -21,11 +21,10 @@ proc AXI_IP_C2C {params} {
     set_property CONFIG.C_NUM_OF_IO         {58.0}  [get_bd_cells $device_name]
     set_property CONFIG.C_INTERFACE_MODE    {0}	    [get_bd_cells $device_name]
     set_property CONFIG.C_INTERFACE_TYPE    {2}	    [get_bd_cells $device_name]
-    set_property CONFIG.C_MASTER_FPGA       [expr $c2c_master == true]	    [get_bd_cells $device_name]
-    set_property CONFIG.C_INCLUDE_AXILITE   [expr 1 + [expr $c2c_master == false]]	    [get_bd_cells $device_name]
+    set_property CONFIG.C_MASTER_FPGA       $c2c_master	    [get_bd_cells $device_name]
+    set_property CONFIG.C_INCLUDE_AXILITE   [expr 1 + !$c2c_master]	    [get_bd_cells $device_name]
     set_property CONFIG.C_AURORA_WIDTH      {1.0}   [get_bd_cells $device_name]
     set_property CONFIG.C_EN_AXI_LINK_HNDLR {false} [get_bd_cells $device_name]
-#    set_property CONFIG.C_INCLUDE_AXILITE   {1}     [get_bd_cells $device_name]
     set_property CONFIG.C_M_AXI_WUSER_WIDTH {0}     [get_bd_cells $device_name]
     set_property CONFIG.C_M_AXI_ID_WIDTH {0}        [get_bd_cells $device_name]
 
@@ -36,30 +35,54 @@ proc AXI_IP_C2C {params} {
     } else {
 	set ms_type "m"
     }
-    
-    #connect AXI interface interconnect (firewall will cut this and insert itself)
-    if { [dict exists $params addr] } {
-	set AXI_params $params
-	dict set AXI_params addr [dict get $params addr]
-	dict set AXI_params remote_slave -1
-	dict set AXI_params force_mem 1
-	[AXI_DEV_CONNECT $AXI_params]    
-	BUILD_AXI_ADDR_TABLE ${device_name}_Mem0 ${device_name}_AXI_BRIDGE
-    } else {
-	AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
+
+
+    if {$c2c_master == true} {
+	#connect AXI interface interconnect (firewall will cut this and insert itself)
+	if { [dict exists $params addr] } {
+	    set AXI_params $params
+	    dict set AXI_params addr [dict get $params addr]
+	    dict set AXI_params remote_slave -1
+	    dict set AXI_params force_mem 1
+	    AXI_DEV_CONNECT $AXI_params
+	    BUILD_AXI_ADDR_TABLE ${device_name}_Mem0 ${device_name}_AXI_BRIDGE
+	} else {
+	    AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
+	}
+	
+	if { [dict exists $params addr_lite] } {
+	    set AXILite_params $params
+	    dict set AXILite_params addr [dict get $params addr_lite]
+	    dict set AXILite_params remote_slave -1
+	    AXI_LITE_DEV_CONNECT $AXILite_params 
+	    BUILD_AXI_ADDR_TABLE ${device_name}_Reg ${device_name}_AXI_LITE_BRIDGE
+	} else {
+	    AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
+	}
+    } else {	
+	if { [dict exists $params addr] } {
+	    dict set AXI_params interconnect $axi_interconnect
+	    dict set AXI_params axi_master $device_name
+	    dict set AXI_params axi_clk    $axi_clk
+	    dict set AXI_params axi_rstn   $axi_rstn
+	    CONNECT_AXI_MASTER_TO_INTERCONNECT $AXI_params
+	} else {
+	    AXI_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
+	}
+	
+	if { [dict exists $params addr_lite] } {
+	    set AXILite_params $params	    
+	    dict set AXILite_params interconnect $axi_interconnect
+	    dict set AXILite_params axi_master $device_name
+	    dict set AXILite_params axi_clk    $axi_clk
+	    dict set AXILite_params axi_rstn   $axi_rstn
+	    dict set AXILite_params type AXI4Lite
+	    CONNECT_AXI_MASTER_TO_INTERCONNECT $AXILite_params
+	} else {
+	    AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
+	}
+
     }
-
-    if { [dict exists $params addr_lite] } {
-	set AXILite_params $params
-	dict set AXILite_params addr [dict get $params addr_lite]
-	dict set AXILite_params remote_slave -1
-	[AXI_LITE_DEV_CONNECT $AXILite_params]
-	BUILD_AXI_ADDR_TABLE ${device_name}_Reg ${device_name}_AXI_LITE_BRIDGE
-    } else {
-	AXI_LITE_CLK_CONNECT $device_name $axi_clk $axi_rstn $ms_type
-    }
-
-
 
     make_bd_pins_external       -name ${device_name}_aurora_pma_init_in          [get_bd_pins ${device_name}/aurora_pma_init_in]
     make_bd_pins_external       -name ${device_name}_aurora_reset_pb             [get_bd_pins ${device_name}/aurora_reset_pb]
@@ -89,4 +112,5 @@ proc AXI_IP_C2C {params} {
 
     #assign_bd_address [get_bd_addr_segs {$device_name/S_AXI/Mem }]
     puts "Added C2C ip: $device_name"
+
 }

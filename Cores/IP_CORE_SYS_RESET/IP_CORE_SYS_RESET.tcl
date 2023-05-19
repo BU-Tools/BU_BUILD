@@ -19,4 +19,15 @@ proc IP_SYS_RESET {params} {
 	set_property -dict [list CONFIG.C_AUX_RST_WIDTH {1} CONFIG.C_AUX_RESET_HIGH {1}] [get_bd_cells $device_name]
 	connect_bd_net [get_bd_pins ${aux_reset}] [get_bd_pins ${device_name}/aux_reset_in]
     }
+
+    #Bus reset inverter
+    set bus_rst_name ${device_name}_BUS_RST_N
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == util_vector_logic}] ${bus_rst_name}
+    set_property -dict [list \
+			    CONFIG.C_SIZE      {1}   \
+			    CONFIG.C_OPERATION {not} \
+			    CONFIG.LOGO_FILE   {data/sym_notgate.png}] \
+	[get_bd_cells ${bus_rst_name}]
+    #connect up the inverter to the bus_reset signal
+    connect_bd_net [get_bd_pins ${device_name}/bus_struct_reset] [get_bd_pins ${bus_rst_name}/Op1]
 }

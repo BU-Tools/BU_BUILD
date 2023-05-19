@@ -168,12 +168,16 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
 proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME {ms_type "s"}} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one.
     set MS_TYPE [string toupper ${ms_type}]
+
     set dest [get_bd_intf_pins -quiet $AXIM_PORT_NAME]
     if { [string trim $dest] == "" } {
 	set dest [get_bd_intf_ports  $AXIM_PORT_NAME]
     }
     
     GET_BD_PINS_OR_PORTS src $device_name/${MS_TYPE}_AXI
+    if { [string trim $src] == "" } {
+        GET_BD_PINS_OR_PORTS src $device_name/${ms_type}_axi
+    }
     if { [string trim $src] == "" } {
 	GET_BD_PINS_OR_PORTS src $device_name/${ms_type}_axi_lite
     }
@@ -187,7 +191,7 @@ proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME {ms_type "s"}} {
 	GET_BD_PINS_OR_PORTS src  $device_name
     }
 
-    
+    puts "Connecting ${src} to ${dest}"
     connect_bd_intf_net ${src} -boundary_type upper ${dest}
     
 }
@@ -290,28 +294,46 @@ proc AXI_DEV_CONNECT {params} {
 proc AXI_LITE_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"} } {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
     set MS_TYPE [string toupper ${ms_type}]
-    if [llength [get_bd_intf_pins -quiet $device_name/${MS_TYPE}_AXI_lite]] {
-	if [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_lite_aclk]        [get_bd_pins $axi_clk]
-            connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_aresetn]     [get_bd_pins $axi_rstn]
-	    connect_bd_net -quiet     [get_bd_pins -quiet $device_name/${ms_type}_axi_lite_aresetn]     [get_bd_pins $axi_rstn]
-        } elseif       [llength [get_bd_pins -quiet $device_name/${ms_type}_axi_aclk]] {
-            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
-        } else {	           
-            connect_bd_net      [get_bd_pins $device_name/${ms_type}_aclk]                 [get_bd_pins $axi_clk]
-            connect_bd_net      [get_bd_pins $device_name/${ms_type}_aresetn]              [get_bd_pins $axi_rstn]
-        }
-    } else {
-        connect_bd_net          [get_bd_pins $device_name/${ms_type}_axi_aclk]             [get_bd_pins $axi_clk]
-        connect_bd_net          [get_bd_pins $device_name/${ms_type}_axi_aresetn]          [get_bd_pins $axi_rstn]
+
+    #handle destinations
+    GET_BD_PINS_OR_PORTS dest_clk $axi_clk
+
+    GET_BD_PINS_OR_PORTS dest_rstn $axi_rstn
+
+    
+    #handle clock source
+    GET_BD_PINS_OR_PORTS src_clk $device_name/${MS_TYPE}_axi_lite_aclk
+    if { [string trim $src_clk] == "" } {
+	GET_BD_PINS_OR_PORTS src_clk $device_name/${MS_TYPE}_AXI_lite
     }
+    if { [string trim $src_clk] == "" } {
+	GET_BD_PINS_OR_PORTS src_clk $device_name/${MS_TYPE}_axi_aclk
+    }
+    if { [string trim $src_clk] == "" } {
+	GET_BD_PINS_OR_PORTS src_clk $device_name/${MS_TYPE}_aclk
+    }
+    if { [string trim $src_clk] == "" } {
+	GET_BD_PINS_OR_PORTS src_clk $device_name/${MS_TYPE}_axi_aclk
+    }
+
+    #handle reset source
+    GET_BD_PINS_OR_PORTS src_rstn  $device_name/${MS_TYPE}_axi_aresetn
+    if { [string trim $src_rstn] == "" } {
+	GET_BD_PINS_OR_PORTS src_rstn $device_name/${MS_TYPE}_axi_lite_aresetn
+    }
+
+    puts "Connecting ${src_clk} to ${dest_clk}"    
+    connect_bd_net -quiet $src_clk $dest_clk
+    puts "Connecting ${src_rstn} to ${dest_rstn}"    
+    connect_bd_net -quiet $src_rstn $dest_rstn
+
+
 }
 
-proc AXI_LITE_BUS_CONNECT {device_name AXIM_PORT_NAME} {
+proc AXI_LITE_BUS_CONNECT {device_name AXIM_PORT_NAME  {ms_type "s"}} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
-    if [llength [get_bd_intf_pins -quiet $device_name/S_AXI_lite]] {
-        connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
+    if [llength [get_bd_intf_pins -quiet $device_name/${ms_type}_AXI_lite]] {
+        connect_bd_intf_net [get_bd_intf_pins $device_name/${ms_type}_AXI_lite] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     } else {
         connect_bd_intf_net     [get_bd_intf_pins $device_name/AXI_LITE] -boundary_type upper [get_bd_intf_pins $AXIM_PORT_NAME]
     }
@@ -426,4 +448,41 @@ proc BUILD_AXI_DATA_WIDTH {params} {
     [AXI_DEV_CONNECT $params]
     puts "Finished Xilinx AXI data width converter: $device_name"
 
+}
+
+proc CONNECT_AXI_MASTER_TO_INTERCONNECT {params} {
+    # required values
+    set_required_values $params {interconnect axi_master axi_clk axi_rstn}
+
+    set_optional_values $params [dict create type AXI4]
+    startgroup
+
+    #add new spot on interconnect for this master
+    EXPAND_AXI_INTERCONNECT $params
+
+    #get source clk
+    set src_clk [GET_BD_PINS_OR_PORTS foo $axi_clk]
+        
+    # connect clocks (foo is just an unused placeholder variable for this function)
+    connect_bd_net $src_clk [get_bd_pins $AXI_MASTER_CLK]; #interconnnect
+    
+    # Connect resets
+    connect_bd_net [GET_BD_PINS_OR_PORTS foo $axi_rstn] [get_bd_pins $AXI_MASTER_RSTN]
+
+    
+    #connect up this interconnect's slave interface to the master $iSlave driving it
+    if {$type == {AXI4}} {
+	AXI_BUS_CONNECT $axi_master $AXI_MASTER_BUS  "m"
+	connect_bd_net -quiet $src_clk [GET_BD_PINS_OR_PORTS foo ${axi_master}/m_aclk]; #interconnnect
+	connect_bd_net -quiet [GET_BD_PINS_OR_PORTS foo $axi_rstn] [get_bd_pins ${axi_master}/m_aresetn]
+    } else {
+	AXI_LITE_BUS_CONNECT $axi_master $AXI_MASTER_BUS "m"
+	connect_bd_net -quiet $src_clk [GET_BD_PINS_OR_PORTS foo ${axi_master}/m_axi_lite_aclk]; #interconnnect
+	connect_bd_net -quiet [GET_BD_PINS_OR_PORTS foo $axi_rstn] [get_bd_pins ${axi_master}/m_aresetn]
+    }
+	
+#    connect_bd_intf_net [get_bd_intf_pins $slaveM] \
+#	-boundary_type upper                       \
+#	[get_bd_intf_pins $AXI_MASTER_BUS]
+    endgroup	
 }
