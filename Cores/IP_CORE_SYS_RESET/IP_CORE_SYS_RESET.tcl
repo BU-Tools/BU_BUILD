@@ -30,4 +30,14 @@ proc IP_SYS_RESET {params} {
 	[get_bd_cells ${bus_rst_name}]
     #connect up the inverter to the bus_reset signal
     connect_bd_net [get_bd_pins ${device_name}/bus_struct_reset] [get_bd_pins ${bus_rst_name}/Op1]
+
+
+    #make resets external
+    #bus_rst_n
+    make_bd_pins_external       -name ${device_name}_bus_rst_n       [get_bd_pins ${bus_rst_name}/Res]
+    #interconnect reset
+    make_bd_pins_external       -name ${device_name}_intcn_rst_n     [get_bd_pins ${device_name}/interconnect_aresetn]
+    #interconnect reset
+    make_bd_pins_external       -name ${device_name}_rst_n           [get_bd_pins ${device_name}/peripheral_aresetn]
+    
 }

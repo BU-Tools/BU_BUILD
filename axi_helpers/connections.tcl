@@ -481,8 +481,9 @@ proc CONNECT_AXI_MASTER_TO_INTERCONNECT {params} {
 	connect_bd_net -quiet [GET_BD_PINS_OR_PORTS foo $axi_rstn] [get_bd_pins ${axi_master}/m_aresetn]
     }
 	
-#    connect_bd_intf_net [get_bd_intf_pins $slaveM] \
-#	-boundary_type upper                       \
-#	[get_bd_intf_pins $AXI_MASTER_BUS]
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+
     endgroup	
 }

@@ -237,6 +237,10 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 #        endgroup	
     }
 
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $AXI_INTERCONNECT_NAME]
+
+    
     #zero the number of slaves connected to this interconnect
     set AXI_INTERCONNECT_SIZE($AXI_INTERCONNECT_NAME) 0
     set_property CONFIG.NUM_MI {1}  [get_bd_cells $AXI_INTERCONNECT_NAME]
