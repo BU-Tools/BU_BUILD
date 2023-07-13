@@ -196,7 +196,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     connect_bd_net -q [get_bd_ports $rstn]  [get_bd_pins $AXI_INTERCONNECT_NAME/ARESETN]
 
     #set to minimize area mode to remove id_widths
-    set_property CONFIG.STRATEGY {1} [get_bd_cells $AXI_INTERCONNECT_NAME]
+    set_property CONFIG.STRATEGY {0} [get_bd_cells $AXI_INTERCONNECT_NAME]
     
     #create a slave interface for each AXI_BUS master
     set AXI_MASTER_COUNT [llength $axi_masters]
