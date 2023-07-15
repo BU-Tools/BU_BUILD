@@ -92,6 +92,10 @@ proc EXPAND_AXI_INTERCONNECT {params} {
     puts "    BUS:  $axi_bus"
     puts "    CLK:  $axi_clk"
     puts "    RSTN: $axi_rstn"
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+
 }
 
 
@@ -146,6 +150,9 @@ proc ADD_MASTER_TO_INTERCONNECT {params} {
 	}
 	puts "Connected to ${interconnect}"
     }
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+
 }
 
 #================================================================================
@@ -237,13 +244,15 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 #        endgroup	
     }
 
-    #set to minimize area mode to remove id_widths
-    set_property CONFIG.STRATEGY {1} [get_bd_cells $AXI_INTERCONNECT_NAME]
 
     
     #zero the number of slaves connected to this interconnect
     set AXI_INTERCONNECT_SIZE($AXI_INTERCONNECT_NAME) 0
     set_property CONFIG.NUM_MI {1}  [get_bd_cells $AXI_INTERCONNECT_NAME]
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $AXI_INTERCONNECT_NAME]
+
     endgroup
 }
 
@@ -351,6 +360,9 @@ proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} {
     AXI_BUS_CONNECT [dict get $params device_name] $AXI_MASTER_BUS "m"
     connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_clk]   [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_CLK]
     connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_rstn ] [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_RSTN]
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
 }    
 
 
