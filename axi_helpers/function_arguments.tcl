@@ -78,7 +78,7 @@ proc set_optional_values {params optional_params {split_dict True}} {
 
     foreach key [dict keys $optional_params]  {
         set def_val [dict get $optional_params $key]
-
+	
         # dictionary type parameters
         if {[is_dict $def_val] } {
 	    

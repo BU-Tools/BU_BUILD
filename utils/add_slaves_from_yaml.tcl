@@ -1,30 +1,37 @@
 proc huddle_to_bd {huddle parent} {    
     foreach key [huddle keys $huddle] {
         if { 0 == [string compare "TCL_CALL" $key] } {
-            set tcl_call_huddle [huddle get $huddle $key]
-            set command "[huddle gets $tcl_call_huddle command]"
-            set pairs [dict create]
-
-            # set a default device name based on the node..
-            # it will be overwritten later if you set device name explicitly
-            dict append pairs device_name $parent
-
-            foreach pairkey [huddle keys $tcl_call_huddle] {
-                if { 0 != [string compare "command" $pairkey]} {
-                    dict set pairs $pairkey [subst [huddle gets $tcl_call_huddle $pairkey]]
-                }}
-	    puts "\n\n\n"
-	    puts "================================================================================"
-            puts "Executing command from YAML: $command \[dict create $pairs\]"
-            eval $command {$pairs}
+	    if { "string" == [huddle type $huddle $key] } {
+		set command [huddle strip [huddle get $huddle $key]]
+		puts "\n\n\n"
+		puts "================================================================================"
+		puts "Executing command from YAML: $command "
+		eval $command
+	    } else {
+		set tcl_call_huddle [huddle get $huddle $key]
 	    
+		set command "[huddle gets $tcl_call_huddle command]"
+		set pairs [dict create]
+		
+		# set a default device name based on the node..
+		# it will be overwritten later if you set device name explicitly
+		dict append pairs device_name $parent
+		
+		foreach pairkey [huddle keys $tcl_call_huddle] {
+		    if { 0 != [string compare "command" $pairkey]} {
+			dict set pairs $pairkey [subst [huddle gets $tcl_call_huddle $pairkey]]
+		    }}
+		puts "\n\n\n"
+		puts "================================================================================"
+		puts "Executing command from YAML: $command \[dict create $pairs\]"
+		eval $command {$pairs}
+	    }	
         }
 	if { 0 == [string compare "INCLUDE_FILE" $key] } {
 	    #this is an include directive, load the file and move forward
-	    set include_huddle [huddle gets $huddle $key]
+	    set include_huddle [subst [huddle gets $huddle $key]]
 	    puts "loading sub-YAML file: $include_huddle"
-	    yaml_to_bd $include_huddle
-            
+	    yaml_to_bd $include_huddle            
 	}
 	if { 0 == [string compare "dict" [huddle type [huddle get $huddle $key]]]} {
             huddle_to_bd [huddle get $huddle $key] $key
