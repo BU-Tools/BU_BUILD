@@ -1,4 +1,6 @@
-source -notrace ${BD_PATH}/dtsi_helpers.tcl
+source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
+
+
 
 #================================================================================
 #Add an AXI master port to the BD from the PL HDL
@@ -66,7 +68,6 @@ proc EXPAND_AXI_INTERCONNECT {params} {
     set_required_values $params {interconnect}    
     
     #get the current size
-    #    set current_master_count [get_property CONFIG.NUM_SI [get_bd_cells $interconnect]]
     set current_master_count $AXI_INTERCONNECT_MASTER_SIZE($interconnect)
 
     #update the size
@@ -91,6 +92,10 @@ proc EXPAND_AXI_INTERCONNECT {params} {
     puts "    BUS:  $axi_bus"
     puts "    CLK:  $axi_clk"
     puts "    RSTN: $axi_rstn"
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+
 }
 
 
@@ -145,6 +150,9 @@ proc ADD_MASTER_TO_INTERCONNECT {params} {
 	}
 	puts "Connected to ${interconnect}"
     }
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+
 }
 
 #================================================================================
@@ -173,9 +181,13 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     global AXI_INTERCONNECT_SIZE
     global AXI_INTERCONNECT_MASTER_SIZE
     
-    #create an axi interconnect 
+    #create an axi interconnect
+    global $name
+    upvar 0 $name AXI_INTERCONNECT_NAME
     set AXI_INTERCONNECT_NAME $name
 
+    
+    
     #assert master_connections and master_clocks are the same size
     if {[llength axi_masters] != [llength axi_master_clks] || \
             [llength axi_masters] != [llength axi_master_rstns]} then {
@@ -206,7 +218,7 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     for {set iSlave 0} {$iSlave < ${AXI_MASTER_COUNT}} {incr iSlave} {
 	startgroup
 	#create a params list for EXPAND_AXI_INTERCONNECT
-	EXPAND_AXI_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME]
+#	EXPAND_AXI_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME]
 
 	#get the current name
         set slaveM [lindex $axi_masters      ${iSlave}]
@@ -214,24 +226,33 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
         set slaveR [lindex $axi_master_rstns ${iSlave}]
 
 	
-        # Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
-        connect_bd_net -q [get_bd_pins  $slaveC] [get_bd_pins $AXI_MASTER_CLK]
-	connect_bd_net -q [get_bd_ports $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+	CONNECT_AXI_MASTER_TO_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME axi_master $slaveM axi_clk ${slaveC} axi_rstn ${slaveR}]
 
-        # Connect resets
-        connect_bd_net -q [get_bd_pins  $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-	connect_bd_net -q [get_bd_ports $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-
-        #connect up this interconnect's slave interface to the master $iSlave driving it
-        connect_bd_intf_net [get_bd_intf_pins $slaveM] \
-	    -boundary_type upper                       \
-	    [get_bd_intf_pins $AXI_MASTER_BUS]
-        endgroup	
+	
+#        # Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
+#        connect_bd_net -q [get_bd_pins  $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+#	connect_bd_net -q [get_bd_ports $slaveC] [get_bd_pins $AXI_MASTER_CLK]
+#
+#        # Connect resets
+#        connect_bd_net -q [get_bd_pins  $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
+#	connect_bd_net -q [get_bd_ports $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
+#
+#        #connect up this interconnect's slave interface to the master $iSlave driving it
+#        connect_bd_intf_net [get_bd_intf_pins $slaveM] \
+#	    -boundary_type upper                       \
+#	    [get_bd_intf_pins $AXI_MASTER_BUS]
+#        endgroup	
     }
 
+
+    
     #zero the number of slaves connected to this interconnect
     set AXI_INTERCONNECT_SIZE($AXI_INTERCONNECT_NAME) 0
     set_property CONFIG.NUM_MI {1}  [get_bd_cells $AXI_INTERCONNECT_NAME]
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $AXI_INTERCONNECT_NAME]
+
     endgroup
 }
 
@@ -252,8 +273,8 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
     global AXI_INTERCONNECT_SIZE
     
     # required values (False mean's don't break apart dictionaries/lists)
-    set_required_values $params {device_name axi_clk axi_rstn parent master_clk master_rstn} False
-
+    set_required_values $params {device_name parent master_clk master_rstn axi_clk axi_rstn } False
+    
     #verify the length of parnet,master_clk, and master_rstn are the same
     if { [llength $parent] != [llength $master_clk] || \
             [llength $parent] != [llength $master_rstn]} then {
@@ -303,3 +324,96 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
 }
 
 
+#================================================================================
+#Add an AXI master port to the BD from the PL HDL
+#Expand an interconnect
+#Connect the two
+#================================================================================
+#Required values:
+#  interconnect: Name of the interconnect we will connect to
+#  name:         Name of the interface to make
+#  axi_clk:      Name of the clock to use for this interface
+#  axi_rstn:     Name of the reset to use for this interface
+#  axi_freq:     Frequncy to set for the clk+bus interface
+#Optional values:
+#  type:       Type of interface (default: AXI4LITE)
+#  addr_width: Width of the AXI interface's address bus
+#  data_width: Width of the AXI interfaces's data bus
+#================================================================================
+proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} { 
+
+    # required values
+    set_required_values $params {interconnect device_name axi_clk axi_rstn axi_freq}
+
+    # optional values
+    set_optional_values $params [dict create type AXI4LITE addr_width 32 data_width 32]
+
+    dict append params name [dict get $params device_name]
+    
+    #create a master from the PL
+    AXI_PL_MASTER_PORT $params
+    
+    #Add a master to the interconnect
+    EXPAND_AXI_INTERCONNECT $params
+
+    #connect the two    
+    AXI_BUS_CONNECT [dict get $params device_name] $AXI_MASTER_BUS "m"
+    connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_clk]   [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_CLK]
+    connect_bd_net [GET_BD_PINS_OR_PORTS throw_away $axi_rstn ] [GET_BD_PINS_OR_PORTS throw_away $AXI_MASTER_RSTN]
+
+    #set to minimize area mode to remove id_widths
+    set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
+}    
+
+
+#================================================================================
+#Add an CLK input to the BD
+#================================================================================
+#Required values:
+#  name:           Name of the interface to make (will be forced to all caps)
+#                  This will have _CLK appended to it. 
+#  freq:           Frequncy to set for the clk+bus interface
+#optional values:
+#  global_signal:  Make this a global signal in the TCL (default false)
+#  add_rst_n:      Add a reset_n signal to go along with this clock
+#================================================================================
+proc ADD_PL_CLK {params} {     
+    # required values
+    set_required_values $params {name freq}
+
+    # optional values
+    set_optional_values $params [dict create global_signal false add_rst_n false]
+
+    
+    #create this clock
+    set clk_name [string toupper ${name}_clk] 
+    set clk_freq [string toupper ${name}_clk_freq]
+
+    
+    create_bd_port -q -dir I -type clk $clk_name
+    set_property CONFIG.FREQ_HZ $freq  [get_bd_ports $clk_name]
+
+    if { $global_signal } {
+	global $clk_name
+	upvar 0 $clk_name local_clk_name
+	set local_clk_name $clk_name
+	global $clk_freq
+	upvar 0 $clk_freq local_clk_freq
+	set local_clk_freq $freq
+	Add_Global_Constant ${clk_freq} integer ${freq}
+    }
+
+    
+    #check if we are also making a reset
+    if { $add_rst_n } {
+	set rst_n_name [string toupper ${name}_rstn]
+	create_bd_port -q -dir I -type rst $rst_n_name
+	set_property CONFIG.ASSOCIATED_RESET $rst_n_name [get_bd_ports $clk_name]
+	if { $global_signal } {
+	    global $rst_n_name
+	    upvar 0 $rst_n_name local_rst_n_name
+	    set local_rst_n_name $rst_n_name
+	}
+
+    }
+}
