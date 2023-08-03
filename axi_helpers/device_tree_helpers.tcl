@@ -1,4 +1,4 @@
-global dtsi_output_path ; set dtsi_output_path "${apollo_root_path}/kernel/hw"
+global dtsi_output_path ; set dtsi_output_path "${apollo_root_path}/kernel/hw/${build_name}"
 
 global axi_memory_mappings_addr;  set axi_memory_mappings_addr  [dict create]
 global axi_memory_mappings_range; set axi_memory_mappings_range [dict create]
