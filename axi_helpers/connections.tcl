@@ -19,7 +19,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 4K} type AXI4LITE data_width 32 remote_slave 0 manual_load_dtsi 0]
+    set_optional_values $params [dict create addr {offset -1 range 4K } type AXI4LITE data_width 32 remote_slave 0 manual_load_dtsi 0]
 
     #optional device tree additions
     set_optional_values $params [dict create dt_data $default_device_tree_additions]
