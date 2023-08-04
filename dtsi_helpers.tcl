@@ -79,7 +79,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
     file mkdir ${dtsi_output_path}
 
     if { [expr [string first xc7z [get_parts -of_objects [get_projects] ] ] >= 0 ] || 
-	 [info exists REMOTE_C2C] || 
+	 [info exists ::REMOTE_C2C] || 
 	 [expr [package vcompare [version -short] 2020.2 ] >=0] } {    
 	#build dtsi file for this for later    
 	set dtsi_file [open "${dtsi_output_path}/${device_name}.dtsi_chunk" w+]
@@ -96,7 +96,7 @@ proc AXI_DEV_UIO_DTSI_CHUNK [list device_name  [list dt_data $default_device_tre
 #	puts $dtsi_file "      compatible = \"generic-uio\";"
 	if { [expr [string length ${addr}] > 8 ] || 
 	     [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
-	     [info exists REMOTE_C2C_64] 
+	     [info exists ::REMOTE_C2C_64] 
 	 } {
 #	    puts $dtsi_file "      		#address-cells = <2>;"
 #	    puts $dtsi_file "                   #size-cells = <2>;"
@@ -170,7 +170,7 @@ proc AXI_DEV_UIO_DTSI_OVERLAY [list device_name  manual_load_dtsi [list dt_data 
     #determine if this is 32 or 64 bit encoding
     if { [expr [string length ${addr}] > 8 ] || 
 	 [expr [string first xczu [get_parts -of_objects [get_projects] ] ] >= 0 ] ||
-	 [info exists REMOTE_C2C_64] 
+	 [info exists ::REMOTE_C2C_64] 
      } {
 	set is64bit true
     }
