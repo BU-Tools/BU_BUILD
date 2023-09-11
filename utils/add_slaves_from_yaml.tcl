@@ -62,6 +62,7 @@ proc yaml_to_bd {yaml_file} {
     }
 }
 
+
 proc yaml_to_control_sets {yaml_file} {
     global build_name
     global apollo_root_path
@@ -72,9 +73,17 @@ proc yaml_to_control_sets {yaml_file} {
 	set dict [dict get [yaml::yaml2dict -file [subst $yaml_file]] "AXI_CONTROL_SETS"]
 	puts "Adding AXI Control Sets"
 	foreach key [dict keys $dict] {
-	    global $key
-	    upvar 0 $key x ;# tie the calling value to variable x
-	    set x [dict get $dict $key]
+	    if { 0 == [string compare "INCLUDE_FILE" $key] } {
+		#this is an include directive, load the file and move forward
+		set subfile [dict get $dict $key]
+		puts "loading sub-YAML file: $subfile"
+		yaml_to_control_sets $subfile           
+	    } else {
+		#assume this is a control set
+		global $key
+		upvar 0 $key x ;# tie the calling value to variable x
+		set x [dict get $dict $key]
+	    }
 	}
     }
 }
