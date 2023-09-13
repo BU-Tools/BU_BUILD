@@ -345,14 +345,20 @@ proc HAL_wrapperGen { params
 	}
 	
 
+#	set params [dict create \
+#				"device_name" $channel_type \
+#				"axi_control" [dict create  \
+#						   "axi_interconnect" $axi_interconnect \
+#						   "axi_clk" $axi_clk \
+#						   "axi_rstn" $axi_rstn \
+#						   "axi_freq" $axi_freq \
+#						  ]\
+#				"addr"        [dict create "offset" $offset "range" $range] \
+#				"remote_slave" $remote_slave \
+#			    ]
 	set params [dict create \
 				"device_name" $channel_type \
-				"axi_control" [dict create  \
-						   "axi_interconnect" $axi_interconnect \
-						   "axi_clk" $axi_clk \
-						   "axi_rstn" $axi_rstn \
-						   "axi_freq" $axi_freq \
-						  ]\
+				"axi_control" [dict get $params "axi_control"] \
 				"addr"        [dict create "offset" $offset "range" $range] \
 				"remote_slave" $remote_slave \
 			    ]

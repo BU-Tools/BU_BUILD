@@ -4,6 +4,7 @@ proc IP_SYS_RESET {params} {
 
     # optional values
     set_optional_values $params {aux_reset "NULL"}
+    set_optional_values $params {aux_reset_n "NULL"}
 
     #createIP
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == proc_sys_reset}] $device_name
@@ -18,6 +19,11 @@ proc IP_SYS_RESET {params} {
     if {${aux_reset} != "NULL"} {
 	set_property -dict [list CONFIG.C_AUX_RST_WIDTH {1} CONFIG.C_AUX_RESET_HIGH {1}] [get_bd_cells $device_name]
 	connect_bd_net [get_bd_pins ${aux_reset}] [get_bd_pins ${device_name}/aux_reset_in]
+    }
+    #aux_reset_n (an error will result if you set both)
+    if {${aux_reset_n} != "NULL"} {
+	set_property -dict [list CONFIG.C_AUX_RST_WIDTH {1} CONFIG.C_AUX_RESET_HIGH {0}] [get_bd_cells $device_name]
+	connect_bd_net [get_bd_pins ${aux_reset_n}] [get_bd_pins ${device_name}/aux_reset_in]
     }
 
     #Bus reset inverter

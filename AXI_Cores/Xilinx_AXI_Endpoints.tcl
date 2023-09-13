@@ -6,6 +6,8 @@ source -notrace ${BD_PATH}/AXI_Cores/AXI_IP_AXI_ILA/AXI_IP_AXI_ILA.tcl
 source -notrace ${BD_PATH}/AXI_Cores/AXI_IP_DRP_INTF/AXI_IP_DRP_INTF.tcl
 #AXI_IP_AXI_FW
 source -notrace ${BD_PATH}/AXI_Cores/AXI_IP_AXI_FW/AXI_IP_AXI_FW.tcl
+#AXI_IP_CLOCK_CONVERT
+source -notrace ${BD_PATH}/AXI_Cores/AXI_IP_CLOCK_CONVERT/AXI_IP_CLOCK_CONVERT.tcl
 #AXI_IP_AXI_MONITOR
 source -notrace ${BD_PATH}/AXI_Cores/AXI_IP_AXI_MONITOR/AXI_IP_AXI_MONITOR.tcl
 #AXI_IP_I2C
