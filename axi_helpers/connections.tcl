@@ -222,7 +222,14 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
     #add addressing
     if {$addr_offset == -1} {
         puts "Automatically setting $device_name address"
-        lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Reg* }] ]
+
+	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Reg* }] ]
+	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Control* }] ]
+	} else {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Mem* }] ]
+	}   	    
     } else {
         if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
             puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
