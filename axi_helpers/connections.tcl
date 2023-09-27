@@ -1,6 +1,6 @@
 source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 source -notrace ${BD_PATH}/utils/vivado.tcl
-
+source ${BD_PATH}/utils/Allocator.tcl
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
 #It will create external connections for the AXI bus, AXI clock, and AXI reset_n
@@ -89,7 +89,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     }
 
     
-    #add addressing
+    #add addressing        
     if {$offset == -1} {
         puts "Automatically setting $device_name address"
         assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
@@ -101,6 +101,29 @@ proc AXI_PL_DEV_CONNECT {params} {
         assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
 
     }
+
+    #test default allocation
+    if { [dict exists $params axi_control allocator BT_name]} {
+	set BT_name [dict get $params axi_control allocator BT_name]
+	global $BT_name
+	upvar 0 $BT_name BT
+
+
+	#need to update range from vivado nomenclature to sane
+	set range [SanitizeVivadoSize $range]
+
+	#get block returns a range and an updated BT
+	set ret [GetBlock $BT $range]
+	#get the range (element 0)
+	set new_addr [lindex $ret 0]
+	#get the new BT (element 1)
+	set BT [lindex $ret 1]
+	puts "I\'d allocate $range at [format 0x%08X $new_addr]"
+	pdict $BT
+	
+    }
+
+    
     endgroup
     validate_bd_design -quiet
 
@@ -224,12 +247,12 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
         puts "Automatically setting $device_name address"
 
 	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
-	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Reg* }] ]
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Reg*] ]
 	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
-	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Control* }] ]
-	} else {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
-	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Mem* }] ]
-	}   	    
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Control*] ]
+	} elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]] } {
+	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Mem*] ]
+	}
     } else {
         if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
             puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
@@ -241,7 +264,6 @@ proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} 
             puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
             lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]]
         }
-
     }
 
     endgroup

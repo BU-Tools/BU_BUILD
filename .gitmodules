@@ -1,0 +1,3 @@
+[submodule "utils/buddyallocation"]
+	path = utils/buddyallocation
+	url = https://gitlab.com/dgastler/buddyallocation.git

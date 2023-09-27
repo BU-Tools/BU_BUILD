@@ -9,7 +9,8 @@ proc huddle_to_bd {huddle parent} {
 		eval $command
 	    } else {
 		set tcl_call_huddle [huddle get $huddle $key]
-	    
+		puts $tcl_call_huddle
+		
 		set command "[huddle gets $tcl_call_huddle command]"
 		set pairs [dict create]
 		
@@ -75,6 +76,18 @@ proc yaml_to_control_sets {yaml_file} {
 	    global $key
 	    upvar 0 $key x ;# tie the calling value to variable x
 	    set x [dict get $dict $key]
+	    #add name so we know which control reg we are using (HUDDLE hides this later)
+	    dict append x name $key
+	    ####################
+	    #add the allocator to this object
+	    ####################
+	    CreateAllocator x
+	    puts "========================================"
+	    puts "========================================"
+	    puts "Adding control $key"
+	    pdict x
+	    puts "========================================"
+	    puts "========================================"
 	}
     }
 }
