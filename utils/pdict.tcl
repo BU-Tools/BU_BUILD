@@ -67,7 +67,11 @@ proc pdict { d {i 0} {p "  "} {s " -> "} } {
             puts ""
             pdict $val [expr {$i+1}] $p $s
         } else {
-            puts "'${val}'"
+	    if { [string is integer $val] } {
+		puts [format 0x%08X $val]
+	    } else {
+		puts "'${val}'"
+	    }
         }
     }
     return

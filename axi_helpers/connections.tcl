@@ -1,6 +1,6 @@
 source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 source -notrace ${BD_PATH}/utils/vivado.tcl
-
+source ${BD_PATH}/utils/Allocator.tcl
 
 #This function automates the adding of a AXI slave that lives outside of the bd.
 #It will create external connections for the AXI bus, AXI clock, and AXI reset_n
@@ -89,18 +89,69 @@ proc AXI_PL_DEV_CONNECT {params} {
     }
 
     
-    #add addressing
-    if {$offset == -1} {
-        puts "Automatically setting $device_name address"
-        assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
-    } else {
-        puts "Manually setting $device_name address to $offset $range"
-	puts /${device_name}/*
-	puts [get_bd_addr_segs /${device_name}/*]
-	puts [get_bd_addr_segs ${device_name}/Reg]
-        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
+#    #add addressing        
+#    if {$offset == -1} {
+#        puts "Automatically setting $device_name address"
+#        assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
+#    } else {
+#        puts "Manually setting $device_name address to $offset $range"
+#	puts /${device_name}/*
+#	puts [get_bd_addr_segs /${device_name}/*]
+#	puts [get_bd_addr_segs ${device_name}/Reg]
+#        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
+#
+#    }
+    
+    #test default allocation
+    if { [dict exists $params axi_control allocator BT_name]} {
+	set BT_name [dict get $params axi_control allocator BT_name]
+	global $BT_name
+	upvar 0 $BT_name BT
 
+	if {$offset == -1} {
+	    #automatically find an address
+	    #need to update range from vivado nomenclature to sane
+	    set range [SanitizeVivadoSize $range]
+	    
+	    #get block returns a range and an updated BT
+	    set ret [GetBlock $BT $range]
+	    #get the range (element 0)
+	    set new_addr [lindex $ret 0]
+	    #get the new BT (element 1)
+	    set BT [lindex $ret 1]
+	    if {$new_addr == -1} {
+		set error_string "failed to allocate automatic address"
+		error ${error_string}
+	    } else {
+		assign_bd_address -verbose -range $range -offset $new_addr [get_bd_addr_segs ${device_name}/Reg]
+		puts "Automatically setting $device_name address"
+	    }	    
+#	    puts "I\'d allocate $range at [format 0x%08X $new_addr]"	    
+	} else {
+	    #we have a set address
+	    set starting_address $offset
+	    set ending_address [expr $offset + [SanitizeVivadoSize $range] - 1]
+
+	    set ret [GetBlockAtAddress $BT $starting_address $ending_address]
+	    #get the range (element 0)
+	    set new_addr [lindex $ret 0]
+	    #get the new BT (element 1)
+	    set BT [lindex $ret 1]
+	    if {$new_addr == -1} {
+		set error_string "failed to allocate ${offset} with range ${range}."
+		error ${error_string}
+	    } else {
+		assign_bd_address -verbose -range $range -offset $new_addr [get_bd_addr_segs ${device_name}/Reg]
+		puts "Manually setting $device_name address to $offset $range"
+	    }
+	    
+#	    puts "I\'d allocate $range at [format 0x%08X $offset] ( block starting at [format 0x%08X $new_addr] )"
+	}
+
+	pdict $BT	
     }
+
+    
     endgroup
     validate_bd_design -quiet
 
@@ -213,30 +264,108 @@ proc AXI_CONNECT {device_name axi_interconnect axi_clk axi_rstn axi_freq {addr_o
     
     endgroup
 }
-proc AXI_SET_ADDR {device_name {addr_offset -1} {addr_range 64K} {force_mem 0}} {
+
+proc AXI_SET_ADDR {device_name axi_control {addr_offset -1} {addr_range 64K} {force_mem 0}} {
 
 
     startgroup
     
 
-    #add addressing
-    if {$addr_offset == -1} {
-        puts "Automatically setting $device_name address"
-        lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs {${device_name}/*Reg* }] ]
-    } else {
-        if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
-            puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
-            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]]
-	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
-            puts "Manually setting $device_name Control address to $addr_offset $addr_range"
-            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Control*]]
-        } elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
-            puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
-            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]]
-        }
+#    #add addressing
+#    if {$addr_offset == -1} {
+#        puts "Automatically setting $device_name address"
+#	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+#	    puts [get_property RANGE [get_bd_addr_segs ${device_name}/*Reg*]]
+#	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Reg*] ]
+#	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
+#	    puts [get_property RANGE [get_bd_addr_segs ${device_name}/*Control*]]
+#	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Control*] ]
+#	} elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]] } {
+#	    puts [get_property RANGE [get_bd_addr_segs ${device_name}/*Mem*]]
+#	    lappend axi_memory_mappings [assign_bd_address -verbose [get_bd_addr_segs ${device_name}/*Mem*] ]
+#	}
+#    } else {
+#        if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+#            puts "Manually setting $device_name Reg address to $addr_offset $addr_range"
+#            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]]
+#	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
+#            puts "Manually setting $device_name Control address to $addr_offset $addr_range"
+#            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Control*]]
+#        } elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]]} {
+#            puts "Manually setting $device_name Mem address to $addr_offset $addr_range"
+#            lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]]
+#        }
+#    }
 
+    #test default allocation
+    if { [dict exists $axi_control allocator BT_name]} {
+	set BT_name [dict get $axi_control allocator BT_name]
+	global $BT_name
+	upvar 0 $BT_name BT
+
+	if {$addr_range == -1 || $addr_range == "auto"} {
+	    if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+		set addr_range [get_property RANGE [get_bd_addr_segs ${device_name}/*Reg*]]
+	    } elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
+		set addr_range [get_property RANGE [get_bd_addr_segs ${device_name}/*Control*]]
+	    } elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]] } {
+		set addr_range [get_property RANGE [get_bd_addr_segs ${device_name}/*Mem*]]
+	    }
+	}
+	set addr_range [SanitizeVivadoSize $addr_range]
+	
+	if {$addr_offset == -1} {
+	    #automatically find an address
+	    	     
+	    #get block returns a range and an updated BT
+	    set ret [GetBlock $BT $addr_range]
+	    #get the address (element 0)
+	    set new_addr [lindex $ret 0]
+	    #get the new BT (element 1)
+	    set BT [lindex $ret 1]
+	    if {$new_addr == -1} {
+		set error_string "failed to allocate automatic address"
+		error ${error_string}
+	    } else {
+		set addr_offset $new_addr
+	    }	    
+	    puts "Automatically setting $device_name address to $addr_offset : $addr_range"
+	} else {
+	    #we have a set address
+	    set starting_address $addr_offset
+	    set ending_address [expr $addr_offset + [SanitizeVivadoSize $addr_range] - 1]
+
+	    set ret [GetBlockAtAddress $BT $starting_address $ending_address]
+	    #get the address (element 0)
+	    set new_addr [lindex $ret 0]
+	    #get the new BT (element 1)
+	    set BT [lindex $ret 1]
+	    puts "I\'d allocate $addr_range at [format 0x%08X $addr_offset] ( block starting at [format 0x%08X $new_addr] )"
+	    if {$new_addr == -1} {
+		set error_string "failed to allocate automatic address"
+		error ${error_string}
+	    } else {
+		set addr_offset $new_addr
+	    }	    
+	}
+
+	#add the assignment to vivado
+	if {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Reg*]]} {
+	    lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Reg*]]
+	} elseif {($force_mem == 0) && [llength [get_bd_addr_segs ${device_name}/*Control*]]} {
+	    lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Control*]]
+	} elseif {[llength [get_bd_addr_segs ${device_name}/*Mem*]] } {
+	    lappend axi_memory_mappings [assign_bd_address -verbose -range $addr_range -offset $addr_offset [get_bd_addr_segs $device_name/*Mem*]]
+	} else {
+	    set error_string "${device_name} is not of type Reg,Control, or Mem"
+	    error $error_string
+	}
+	
+	pdict $BT	
     }
 
+
+    
     endgroup
 
 }
@@ -286,7 +415,7 @@ proc AXI_DEV_CONNECT {params} {
     }
 
     [AXI_CONNECT $device_name $axi_interconnect $axi_clk $axi_rstn $axi_freq $offset $range $remote_slave]
-    AXI_SET_ADDR $device_name $offset $range $force_mem
+    AXI_SET_ADDR $device_name [dict get $params axi_control] $offset $range $force_mem
     AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi $dt_data
 }
 
@@ -367,7 +496,7 @@ proc AXI_LITE_DEV_CONNECT {params} {
     AXI_LITE_CLK_CONNECT  $device_name $axi_clk $axi_rstn
 
 
-    AXI_SET_ADDR $device_name $offset $range
+    AXI_SET_ADDR $device_name [dict get $params axi_control] $offset $range
     AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi
 
     validate_bd_design -quiet 
@@ -404,7 +533,7 @@ proc AXI_CTL_DEV_CONNECT {params} {
     connect_bd_net  -quiet  [get_bd_pins $device_name/aresetn]          [get_bd_pins $axi_rstn]
 
     
-    AXI_SET_ADDR $device_name $offset $range
+    AXI_SET_ADDR $device_name [dict get $params axi_control] $offset $range
     AXI_GEN_DTSI $device_name $remote_slave $manual_load_dtsi
 
     validate_bd_design -quiet

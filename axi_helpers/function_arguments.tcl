@@ -35,6 +35,7 @@ proc set_required_values {params required_params {split_dict True}} {
                 }
             } else {
                 # handle non-dictionary arguments
+		puts "non-dictionary arguments $key $val"
                 upvar 1 $key x ;# tie the calling value to variable x
                 set x $val
             }
