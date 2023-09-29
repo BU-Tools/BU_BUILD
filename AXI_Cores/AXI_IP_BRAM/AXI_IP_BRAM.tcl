@@ -5,7 +5,7 @@ proc AXI_IP_BRAM {params} {
     set_required_values $params {device_name axi_control}
 
     # optional values
-    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0]
+    set_optional_values $params [dict create addr {offset -1 range 64K} remote_slave 0 externalBport true]
 
     #create XADC AXI slave
     create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == axi_bram_ctrl }] ${device_name}
@@ -27,8 +27,10 @@ proc AXI_IP_BRAM {params} {
     #connect BRAM controller to BRAM
     connect_bd_intf_net [get_bd_intf_pins ${device_name}/BRAM_PORTA] [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTA]
 
-    #make the other port external to the PL
-    make_bd_intf_pins_external  -name ${BRAM_NAME}_PORTB [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
+    if { $externalBport } {
+	#make the other port external to the PL
+	make_bd_intf_pins_external  -name ${BRAM_NAME}_PORTB [get_bd_intf_pins ${BRAM_NAME}/BRAM_PORTB]
+    }
 
     puts "Added Xilinx blockram: $device_name"
 }
