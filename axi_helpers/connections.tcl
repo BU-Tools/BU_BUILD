@@ -2,17 +2,18 @@ source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 source -notrace ${BD_PATH}/utils/vivado.tcl
 source ${BD_PATH}/utils/Allocator.tcl
 
+## proc \c AXI_PL_DEV_CONNECT
+#Arguments:
+#  \param device_name the name of the axi slave (will be used in the dtsi_chunk file)
+#  \param axi_interconnect_name name of the bd axi interconnect we will be connecting to
+#  \param axi_master_name name of the channel on the axi interconnect this slave uses
+#  \param axi_clk the clock used for this axi slave/master channel
+#  \param axi_reset_n the reset used for this axi slave/master channel
+#  \param axi_clk_freq the frequency of the AXI clock used for slave/master
+#
 #This function automates the adding of a AXI slave that lives outside of the bd.
 #It will create external connections for the AXI bus, AXI clock, and AXI reset_n
 #for the external slave and connect them up to the axi interconnect in the bd.
-#The arguments are
-#  device_name: the name of the axi slave (will be used in the dtsi_chunk file)
-#  axi_interconnect_name: name of the bd axi interconnect we will be connecting to
-#  axi_master_name: name of the channel on the axi interconnect this slave uses
-#  axi_clk: the clock used for this axi slave/master channel
-#  axi_reset_n: the reset used for this axi slave/master channel
-#  axi_clk_freq: the frequency of the AXI clock used for slave/master
-
 proc AXI_PL_DEV_CONNECT {params} {
     global default_device_tree_additions
 
@@ -89,20 +90,7 @@ proc AXI_PL_DEV_CONNECT {params} {
     }
 
     
-#    #add addressing        
-#    if {$offset == -1} {
-#        puts "Automatically setting $device_name address"
-#        assign_bd_address  [get_bd_addr_segs {$device_name/Reg }]
-#    } else {
-#        puts "Manually setting $device_name address to $offset $range"
-#	puts /${device_name}/*
-#	puts [get_bd_addr_segs /${device_name}/*]
-#	puts [get_bd_addr_segs ${device_name}/Reg]
-#        assign_bd_address -verbose -range $range -offset $offset [get_bd_addr_segs ${device_name}/Reg]
-#
-#    }
-    
-    #test default allocation
+    #add addressing        
     if { [dict exists $params axi_control allocator BT_name]} {
 	set BT_name [dict get $params axi_control allocator BT_name]
 	global $BT_name
@@ -124,9 +112,8 @@ proc AXI_PL_DEV_CONNECT {params} {
 		error ${error_string}
 	    } else {
 		assign_bd_address -verbose -range $range -offset $new_addr [get_bd_addr_segs ${device_name}/Reg]
-		puts "Automatically setting $device_name address"
+		puts "Automatically setting $device_name address to $new_addr $range"
 	    }	    
-#	    puts "I\'d allocate $range at [format 0x%08X $new_addr]"	    
 	} else {
 	    #we have a set address
 	    set starting_address $offset
@@ -145,7 +132,6 @@ proc AXI_PL_DEV_CONNECT {params} {
 		puts "Manually setting $device_name address to $offset $range"
 	    }
 	    
-#	    puts "I\'d allocate $range at [format 0x%08X $offset] ( block starting at [format 0x%08X $new_addr] )"
 	}
 
 	pdict $BT	
@@ -166,11 +152,18 @@ proc AXI_PL_DEV_CONNECT {params} {
     if {$remote_slave == 1} {
         AXI_DEV_UIO_DTSI_OVERLAY ${device_name} ${manual_load_dtsi} $dt_data
     }
-
-
 }
 
-
+##proc \c AXI_CLK_CONNECT
+# Arguments:
+#   \param device_name The name of the device to connect up clocks and resets to
+#   \param axi_clk  The name of the clock to connect to device_name
+#   \param axi_rstn The name of the associated reset to connect to device_name
+#   \param ms_type If the interface of device_name is an axi master "m" or slave "s" (default slave)
+#
+#This process connects a device's clock and reset ports.
+#This can be complicated by Xilinx's naming conventions, so this function tries to find the correct port to connect to.
+#This naming can change if the interface is a master or slave AXI interface, so that is an optional argument with the default of a slave interface.
 proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one. 
     set MS_TYPE [string toupper ${ms_type}]
@@ -216,6 +209,14 @@ proc AXI_CLK_CONNECT {device_name axi_clk axi_rstn {ms_type "s"}} {
     connect_bd_net -quiet  $src_rstn $dest_rstn
 }
 
+##proc \c AXI_BUS_CONNECT
+# Arguments:
+#   \param device_name The name of device_name of the "source" AXI interface
+#   \param AXIM_PORT_NAME  The name of the "destination" AXI port to connect to. 
+#   \param ms_type If the interface of device_name is an axi master "m" or slave "s" (default slave)
+#
+#This call connects device_name's AXI interface to AXIM_PORT_NAME.
+#This is complicated and 
 proc AXI_BUS_CONNECT {device_name AXIM_PORT_NAME {ms_type "s"}} {
     #Xilinx AXI slaves use different names for the AXI connection, this if/else tree will try to find the correct one.
     set MS_TYPE [string toupper ${ms_type}]
