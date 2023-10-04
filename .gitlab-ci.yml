@@ -1,0 +1,15 @@
+stages:
+  - doc
+
+job_doxygen:
+  stage: doc
+  image: hrektts/doxygen
+  script:
+    - cd doc
+    - make
+  artifacts:
+    paths:
+      - doc/doxygen.tar.gz
+  only
+    -tags
+    
