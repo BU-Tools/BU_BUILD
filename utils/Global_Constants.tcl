@@ -1,3 +1,11 @@
+## proc \c Add_Global_Constant
+# Arguments:
+#   \param name Name to be used in the global VHDL package for this constant
+#   \param type The type of this constant (std_logic_1164 VHDL type)
+#   \param value Value to set the constant to
+#
+# This call adds a constant to the global VHDL package and sets its value.
+# This will be writen out at the end of the BD build process.
 proc Add_Global_Constant {name type value} {
     #connect to global variable for this
     global global_constants
@@ -9,6 +17,9 @@ proc Add_Global_Constant {name type value} {
    
 }
 
+## proc \c Generate_Global_package
+# This call generates the final global package file and writes it to disk.
+# The contents have been set by calls to Add_Global_constant
 proc Generate_Global_package {} {
     global build_name
     global apollo_root_path

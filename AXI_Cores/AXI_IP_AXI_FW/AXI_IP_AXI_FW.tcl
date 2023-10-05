@@ -6,7 +6,7 @@ proc AXI_IP_AXI_FW {params} {
 
     # optional values
     set_optional_values $params [dict create addr {offset -1 range 4k} remote_slave 0]
-
+    set_optional_values $params [dict create wait_shift 0]
 
     # $axi_fw_bus is the master of the line we want to put a firewall in
     # Get the slave that the master is currently connected to. 
@@ -45,6 +45,25 @@ proc AXI_IP_AXI_FW {params} {
     connect_bd_intf_net [get_bd_intf_pins $device_name/S_AXI] -boundary_type upper $master_interface
     #connect the AXI fw to the slave
     connect_bd_intf_net ${slave_interface} -boundary_type upper [get_bd_intf_pins $device_name/M_AXI]
+
+
+    #shift the default wait (0xFFFF) down by wait_shift bits
+    #this does not work yet because when this is applied, the primitives have already been selected.
+    #I am working on deleting the FDSE pirmitive with a FDRE primitive that will switch the reset value.
+    if { $wait_shift > 0} {
+	global post_synth_commands
+	set lower_bound [expr {15-$wait_shift}]
+	for {set bit 15} {$bit > $lower_bound} {incr bit -1} {
+	    #build a command to change the bit'th bit of each wait time register's default value for this axi fw
+	    set blah [format "foreach cell \[get_cells -hierarchical -regexp .*%s.*WAIT.*_reg\\\\\[%s\\\\\] -filter {REF_NAME == FDSE}\] { puts \${cell} ; puts \[get_property INIT \${cell}\]; set_property INIT 1'b0 \${cell}; puts \[get_property INIT \${cell}\]; puts \"\\\\n\\\\n\\\\n\\\\n\"} " ${device_name} ${bit}]
+	    lappend post_synth_commands $blah
+	    
+	}
+    }
+
+    
+
+
     
     AXI_CTL_DEV_CONNECT $params
 }

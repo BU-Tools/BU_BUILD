@@ -91,6 +91,7 @@ proc C2C_AURORA {params} {
     #connect external clock to init clocks      
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C_PHY}/init_clk]       
     connect_bd_net [get_bd_ports ${init_clk}]   [get_bd_pins ${C2C}/aurora_init_clk]    
+
     #drp port fixed to init clk in USP
     if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
 	#connect drp clock explicitly in 7-series
@@ -106,11 +107,21 @@ proc C2C_AURORA {params} {
     } else {
 	#connect up clocking resource to primary C2C_PHY
 	connect_bd_net [get_bd_pins     [get_bd_pins [list ${primary_serdes}/gt_refclk1_out ${primary_serdes}/refclk1_in]] ]            [get_bd_pins ${C2C_PHY}/refclk1_in]
-	if { [string first u [get_part] ] == -1 && [string first U [get_part] ] == -1 } {
-	    #only in 7-series
-  	    connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllclk_quad3_out]      [get_bd_pins ${C2C_PHY}/gt_qpllclk_quad3_in]
-	    connect_bd_net [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad3_out]   [get_bd_pins ${C2C_PHY}/gt_qpllrefclk_quad3_in]
+
+
+	#connect up qpll signals between the cores
+	set qpllclks [get_bd_pins ${primary_serdes}/gt_qpllclk_quad*_out]
+	foreach qpllclk ${qpllclks} {
+	    #remove the prefix and the "_out" at the end
+	    set qpllclk_part [string range ${qpllclk} [string length ${primary_serdes}]+1 [string length ${qpllclk}]-5]
+	    connect_bd_net [get_bd_pins ${primary_serdes}${qpllclk_part}_out]      [get_bd_pins ${C2C_PHY}${qpllclk_part}_in]
 	}
+	set qpllrefclks [get_bd_pins ${primary_serdes}/gt_qpllrefclk_quad*_out]
+	foreach qpllrefclk ${qpllrefclks} {
+	    set qpllrefclk_part [string range ${qpllrefclk} [string length ${primary_serdes}]+1 [string length ${qpllrefclk}]-5]
+	    connect_bd_net [get_bd_pins ${primary_serdes}${qpllrefclk_part}_out]      [get_bd_pins ${C2C_PHY}${qpllrefclk_part}_in]
+	}
+		
 	connect_bd_net [get_bd_pins     ${primary_serdes}/sync_clk_out]              [get_bd_pins ${C2C_PHY}/sync_clk]
     }
 

@@ -417,3 +417,12 @@ proc ADD_PL_CLK {params} {
 
     }
 }
+
+
+proc BUILD_JTAG_AXI_MASTER {params} {
+    # required values
+    set_required_values $params {device_name axi_clk axi_rstn}
+    create_bd_cell -type ip -vlnv [get_ipdefs -filter {NAME == jtag_axi }] ${device_name}
+    connect_bd_net [get_bd_ports ${axi_clk}] [get_bd_pins ${device_name}/aclk]
+    connect_bd_net [get_bd_pins  ${device_name}/aresetn] [get_bd_pins ${axi_rstn}]
+}

@@ -76,7 +76,7 @@ proc BuildTypeXML {file_path \
 	#add each channels module
 	for {set iChan 0} {$iChan < $quad_channel_count} {incr iChan} {
 	    puts $out_file [format \
-				"  <node id=\"%s\"   address=\"0x%08X\" fwinfo=\"type=array\">" \
+				"  <node id=\"%s\"   address=\"0x%08X\" parameters=\"Scan=${type_name}\" fwinfo=\"type=array\">" \
 			        "CHANNEL_${iChan}" \
 				$address]
 	    puts $out_file [format \

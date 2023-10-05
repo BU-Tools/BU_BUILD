@@ -3,12 +3,12 @@
 proc ladd {l} {::tcl::mathop::+ {*}$l}
 
 
-
+## proc \c pdict
 #from https://wiki.tcl-lang.org/page/pdict%3A+Pretty+print+a+dict
 # -- pdict
 #
 # Pretty print a dict similar to parray.
-#
+# \verbatim
 # USAGE:
 #
 #   pdict d [i [p [s]]]
@@ -38,6 +38,7 @@ proc ladd {l} {::tcl::mathop::+ {*}$l}
 # dict d
 # a ->
 # ...
+# \endverbatim
 proc pdict { d {i 0} {p "  "} {s " -> "} } {
     set fRepExist [expr {0 < [llength\
             [info commands tcl::unsupported::representation]]}]
@@ -67,7 +68,11 @@ proc pdict { d {i 0} {p "  "} {s " -> "} } {
             puts ""
             pdict $val [expr {$i+1}] $p $s
         } else {
-            puts "'${val}'"
+	    if { [string is integer $val] } {
+		puts [format 0x%08X $val]
+	    } else {
+		puts "'${val}'"
+	    }
         }
     }
     return
