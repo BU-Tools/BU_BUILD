@@ -1,3 +1,19 @@
+## proc \c IP_CORE_ILA
+# Arguments:
+#   \param params a dictionary of parameters for this core
+#     - \b device_name Name for this IP Core
+#     - \b probes A dictionary of probes to make
+#     - \b - \b N : A dictionary of parameters of this probe
+#       - \b TYPE The numeric type of this trigger (0: data & trigger, 1 data only, 2 trigger only)
+#       - \b WIDTH bit width of this probe
+#       - \b MU_CNT count of comparitors for this probe (use 2)
+#     - \b EN_STR_QUAL (default 1) Allows changing of the triggering in the hw_manager
+#     - \b ADV_TRIGGER (default false)
+#     - \b ALL_PROBE_SAME_MU_CNT (default 2)
+#     - \b ENABLE_ILA_AXI_MON (default false)
+#     - \b MONITOR_TYPE (default native)
+#
+# Create a ILA core to use in the design
 proc IP_CORE_ILA {params} {
     global build_name
     global apollo_root_path

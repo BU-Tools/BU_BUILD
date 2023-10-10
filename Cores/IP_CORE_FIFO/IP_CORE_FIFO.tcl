@@ -1,5 +1,17 @@
-
-
+## proc \c IP_CORE_FIFO
+# Arguments:
+#   \param params a dictionary of parameters for this core
+#     - \b device_name: Name for this IPCore
+#     - \b Input: Dictionary for input parameters
+#       - \b Width: Width in bits of the input
+#       - \b Depth: Depth of fifo
+#     - \b Output: Dictionary for input parameters
+#       - \b Width: Width in bits of the output (must be compatible with input)
+#       - \b Depth: Depth of fifo (must be compatible with input)
+#     - \b Valid_Flag: boolean for if there is a data valid on the output (default false)
+#     - \b Fall_Through: boolean for if there is first word fall through on the output (default false)
+#     - \b Type: Type of fifo (natural?)
+# Create a Xilinx FIFO IP Core
 proc IP_CORE_FIFO {params} {
     global build_name
     global apollo_root_path

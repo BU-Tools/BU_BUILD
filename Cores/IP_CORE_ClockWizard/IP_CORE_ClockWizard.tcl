@@ -1,4 +1,18 @@
-
+## proc \c IP_CORE_ClockWizard
+# Arguments:
+#   \param params a dictionary of parameters for this core
+#   - \b device_name Name for this IP Core
+#   - \b in_clk_type Type of input clock (Differential_clock_capable_pin or others in Xilinx doc)
+#   - \b in_clk_freq_MHZ Frequency of input clock in MHz
+#   - \b out_clks A dictionary of output clocks to make
+#     - \b N : \b freq A list of numbered entries 1-N for each output with an associated frequency
+#   - \b config_options a dictionary of additional parameters to set
+#     - \b PARAM_NAME : \b PARAM_VALUE pairs of parameters and values to set them to
+#
+# This creates a Xilinx ClockWizard IP core with an input clock and N output clocks
+# The input clock's name, with frequency XX.ABCD will be named device_name_XX_ABCD_Mhz.
+# The output clock's name, with freqncy YY.ABCD will be named clk_YY_ABCD_MHZ
+# ABCD can be as long as Vivado allows
 proc IP_CORE_ClockWizard {params} {
     global build_name
     global apollo_root_path
@@ -25,9 +39,9 @@ proc IP_CORE_ClockWizard {params} {
     #====================================
     #Parse the output clocks
     #====================================
-    #set the count of probes
+    #set the count of clks
     set clk_count 0
-    #build each probe
+    #build each clk
     dict for {clk settings} $out_clks {
 	#set the probe count to the max in the list
 	if { $clk > $clk_count } {	    

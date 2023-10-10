@@ -2,21 +2,18 @@ source -notrace ${BD_PATH}/axi_helpers/device_tree_helpers.tcl
 
 
 
-#================================================================================
-#Add an AXI master port to the BD from the PL HDL
-#================================================================================
-#Required values:
-#  name:       Name of the interface to make
-#  axi_clk:    Name of the clock to use for this interface
-#  axi_rstn:   Name of the reset to use for this interface
-#  axi_freq:   Frequncy to set for the clk+bus interface
-#Optional values:
-#  type:       Type of interface (default: AXI4LITE)
-#  addr_width: Width of the AXI interface's address bus
-#  data_width: Width of the AXI interfaces's data bus
-#================================================================================
+## proc \c AXI_PL_MASTER_PORT
+# Arguments:
+#   \param name Name of the interface to make
+#   \param axi_clk Name of the clock to use for this interface
+#   \param axi_rstn Name of the reset to use for this interface
+#   \param axi_freq Frequncy to set for the clk+bus interface
+#   \param type Type of interface (default: AXI4LITE)
+#   \param addr_width Width of the AXI interface's address bus (default: 32)
+#   \param data_width Width of the AXI interfaces's data bus (default: 32)
+#
+# Add an AXI master port to the BD from the PL HDL
 proc AXI_PL_MASTER_PORT {params} { 
-
     # required values
     set_required_values $params {name axi_clk axi_rstn axi_freq}
 
@@ -51,17 +48,16 @@ proc AXI_PL_MASTER_PORT {params} {
     set_property CONFIG.PROTOCOL ${type} $axi_port
 }
 
-#================================================================================
+## proc \c EXPAND_AXI_INTERCONNECT
+# Arguments:
+#   \param interconnect  Name of the AXI interconnect to expand
+# Return values (via upval):
+#   \return AXI_MASTER_BUS  Name of the AXI slave port created
+#   \return AXI_MASTER_CLK  Name of the AXI slave port clk
+#   \return AXI_MASTER_RSTN Name of the AXI slave port reset
+#
 #Expand an interconnect's number of slave interfaces for connecting to AXI master
 #interfaces
-#================================================================================
-#Required values:
-#  interconnect:  Name of the AXI interconnect to expand
-#Return values (via upval):
-#  AXI_MASTER_BUS:  Name of the AXI slave port created
-#  AXI_MASTER_CLK:  Name of the AXI slave port clk
-#  AXI_MASTER_RSTN: Name of the AXI slave port reset
-#================================================================================
 proc EXPAND_AXI_INTERCONNECT {params} {
     global AXI_INTERCONNECT_MASTER_SIZE
 
@@ -99,17 +95,16 @@ proc EXPAND_AXI_INTERCONNECT {params} {
 }
 
 
-#================================================================================
-#add a new master interface to $interconnect to use for a new slave
-#================================================================================
-#Required values:
-#  interconnect:    Name of the AXI interconnect to expand
-#Return values (via upval):
-#  AXIM_NAME:  Name of the AXI interconnect
-#  AXIM_PORT_NAME:  Name of the AXI master port created
-#  AXIM_CLK_NAME:   Name of the AXI master port clk
-#  AXIM_RSTN_NAME:  Name of the AXI master port reset
-#================================================================================
+## proc \c ADD_MASTER_TO_INTERCONNECT
+# Arguments:
+#   \params interconnect    Name of the AXI interconnect to expand
+# Return values (via upval):
+#   \return AXIM_NAME       Name of the AXI interconnect
+#   \return AXIM_PORT_NAME  Name of the AXI master port created
+#   \return AXIM_CLK_NAME   Name of the AXI master port clk
+#   \return AXIM_RSTN_NAME  Name of the AXI master port reset
+#
+# add a new master interface to $interconnect to use for a new slave
 proc ADD_MASTER_TO_INTERCONNECT {params} {
     global AXI_INTERCONNECT_SIZE
 
@@ -164,18 +159,17 @@ array set AXI_INTERCONNECT_SIZE {}
 #array of the count of slave interfaces (for interconnect masters) for each interconnect
 [clear_global AXI_INTERCONNECT_SIZE]
 array set AXI_INTERCONNECT_MASTER_SIZE {}
-#================================================================================
+
+## proc \c BUILD_AXI_INTERCONNECT
+# Arguments:
+#  \param name  interconnect name
+#  \param clk   interconnect clk
+#  \param rstn  interconnect reset_n
+#  \param axi_masters list of AXI master interfaces to create and connect interconnect AXI slave ports
+#  \param axi_master_clks  list of slave port clocks
+#  \param axi_master_rstns list of slave port resets
+#
 #Build a new AXI interconnect
-#================================================================================
-#Arguments
-#  name:  interconnect name
-#  clk:   interconnect clk
-#  rstn:  interconnect reset_n
-#  axi_masters:      list of AXI master interfaces to create and connect
-#                    interconnect AXI slave ports
-#  axi_master_clks:  list of slave port clocks
-#  axi_master_rstns: list of slave port resets
-#================================================================================
 proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_master_rstns} {
 
     global AXI_INTERCONNECT_SIZE
@@ -218,7 +212,6 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     for {set iSlave 0} {$iSlave < ${AXI_MASTER_COUNT}} {incr iSlave} {
 	startgroup
 	#create a params list for EXPAND_AXI_INTERCONNECT
-#	EXPAND_AXI_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME]
 
 	#get the current name
         set slaveM [lindex $axi_masters      ${iSlave}]
@@ -229,19 +222,6 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
 	CONNECT_AXI_MASTER_TO_INTERCONNECT [dict create interconnect $AXI_INTERCONNECT_NAME axi_master $slaveM axi_clk ${slaveC} axi_rstn ${slaveR}]
 
 	
-#        # Connect the interconnect's slave and master clocks to the processor system's axi master clock (FCLK_CLK0)
-#        connect_bd_net -q [get_bd_pins  $slaveC] [get_bd_pins $AXI_MASTER_CLK]
-#	connect_bd_net -q [get_bd_ports $slaveC] [get_bd_pins $AXI_MASTER_CLK]
-#
-#        # Connect resets
-#        connect_bd_net -q [get_bd_pins  $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-#	connect_bd_net -q [get_bd_ports $slaveR] [get_bd_pins $AXI_MASTER_RSTN]
-#
-#        #connect up this interconnect's slave interface to the master $iSlave driving it
-#        connect_bd_intf_net [get_bd_intf_pins $slaveM] \
-#	    -boundary_type upper                       \
-#	    [get_bd_intf_pins $AXI_MASTER_BUS]
-#        endgroup	
     }
 
 
@@ -256,19 +236,16 @@ proc BUILD_AXI_INTERCONNECT {name clk rstn axi_masters axi_master_clks axi_maste
     endgroup
 }
 
-
-#================================================================================
+## proc \c BUILD_CHILD_AXI_INTERCONNECT
+# Arguments:
+#   \param device_name  Autoset by the tcl system
+#   \param axi_clk      The child interconnect's clock
+#   \param axi_rstn     The child interconnect's reset_n
+#   \param parent       A tcl list of parents for this interconnect. These can be another interconnect or an explicit master AXI port
+#   \param master_clk:   A tcl list of parent interface's clock
+#   \param master_rstn:  A tcl list of parent interface's resets
+#
 #Build a interconnect(child) that is a AXI slave of another interconnect(parent)
-#================================================================================
-#Required values:
-#  device_name:  Autoset by the tcl system
-#  axi_clk:      The child interconnect's clock
-#  axi_rstn:     The child interconnect's reset_n
-#  parent:       A tcl list of parents for this interconnect.
-#                These can be another interconnect or an explicit master AXI port
-#  master_clk:   A tcl list of parent interface's clock
-#  master_rstn:  A tcl list of parent interface's resets
-#================================================================================
 proc BUILD_CHILD_AXI_INTERCONNECT {params} {
     global AXI_INTERCONNECT_SIZE
     
@@ -323,23 +300,20 @@ proc BUILD_CHILD_AXI_INTERCONNECT {params} {
         $AXIM_RSTN_NAMES
 }
 
-
-#================================================================================
+## proc \c GENERATE_PL_MASTER_FOR_INTERCONNECT
+#Arguments:
+#  \param interconnect Name of the interconnect we will connect to
+#  \param name         Name of the interface to make
+#  \param axi_clk      Name of the clock to use for this interface
+#  \param axi_rstn     Name of the reset to use for this interface
+#  \param axi_freq     Frequncy to set for the clk+bus interface
+#  \param type        Type of interface (default: AXI4LITE)
+#  \param addr_width  Width of the AXI interface's address bus (default: 32)
+#  \param data_width  Width of the AXI interfaces's data bus (default: 32)
+#
 #Add an AXI master port to the BD from the PL HDL
 #Expand an interconnect
 #Connect the two
-#================================================================================
-#Required values:
-#  interconnect: Name of the interconnect we will connect to
-#  name:         Name of the interface to make
-#  axi_clk:      Name of the clock to use for this interface
-#  axi_rstn:     Name of the reset to use for this interface
-#  axi_freq:     Frequncy to set for the clk+bus interface
-#Optional values:
-#  type:       Type of interface (default: AXI4LITE)
-#  addr_width: Width of the AXI interface's address bus
-#  data_width: Width of the AXI interfaces's data bus
-#================================================================================
 proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} { 
 
     # required values
@@ -365,18 +339,14 @@ proc GENERATE_PL_MASTER_FOR_INTERCONNECT {params} {
     set_property CONFIG.STRATEGY {1} [get_bd_cells $interconnect]
 }    
 
-
-#================================================================================
-#Add an CLK input to the BD
-#================================================================================
-#Required values:
-#  name:           Name of the interface to make (will be forced to all caps)
-#                  This will have _CLK appended to it. 
-#  freq:           Frequncy to set for the clk+bus interface
-#optional values:
-#  global_signal:  Make this a global signal in the TCL (default false)
-#  add_rst_n:      Add a reset_n signal to go along with this clock
-#================================================================================
+## proc \c ADD_PL_CLK
+# Arguments
+#   \param name  Name of the interface to make (will be forced to all caps) This will have _CLK appended to it. 
+#   \param freq  Frequncy to set for the clk+bus interface
+#   \param global_signal  Make this a global signal in the TCL (default false)
+#   \param add_rst_n      Add a reset_n signal to go along with this clock
+# 
+# Add an CLK input to the BD
 proc ADD_PL_CLK {params} {     
     # required values
     set_required_values $params {name freq}
@@ -418,7 +388,13 @@ proc ADD_PL_CLK {params} {
     }
 }
 
-
+## proc \c BUILD_JTAG_AXI_MASTER
+# Arguments:
+#   \param device_name Name of the master
+#   \param axi_clk clk to use for this master
+#   \param axi_rstn reset to use for this master
+#
+# Create a AXI interface to the PL for PL AXI master
 proc BUILD_JTAG_AXI_MASTER {params} {
     # required values
     set_required_values $params {device_name axi_clk axi_rstn}

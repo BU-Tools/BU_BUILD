@@ -1,3 +1,14 @@
+## proc \c IP_SYS_RESET
+# Arguments:
+#   \param params a dictionary of parameters for this core
+#     - \b device_name Name of this sys resetter
+#     - \b external_reset_n name of the external reset to start the reset cycle
+#     - \b slowest_clk The slowest clock synchronous to the reset
+#     - \b aux_reset name of an auxiliary reset
+#     - \b aux-Reset_n name of an inverted auxiliary reset
+#
+# This will generate an axi resetter core that will output bus,interconnect, and peripheral rset signals
+# These are available in the BD and sent out of the BD
 proc IP_SYS_RESET {params} {
     # required values
     set_required_values $params {device_name external_reset_n slowest_clk}
@@ -43,7 +54,7 @@ proc IP_SYS_RESET {params} {
     make_bd_pins_external       -name ${device_name}_bus_rst_n       [get_bd_pins ${bus_rst_name}/Res]
     #interconnect reset
     make_bd_pins_external       -name ${device_name}_intcn_rst_n     [get_bd_pins ${device_name}/interconnect_aresetn]
-    #interconnect reset
+    #peripheral reset
     make_bd_pins_external       -name ${device_name}_rst_n           [get_bd_pins ${device_name}/peripheral_aresetn]
     
 }
